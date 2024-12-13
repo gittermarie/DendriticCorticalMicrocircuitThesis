@@ -135,7 +135,8 @@ dmypy.json
 cython_debug/
 
 # Experiment tracking
-/weights
-/graphics
-/wandb
-/runs
+weights/
+graphics/
+wandb/
+runs/
+weights_*
