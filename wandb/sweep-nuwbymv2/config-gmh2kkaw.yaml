@@ -1,0 +1,10 @@
+wandb_version: 1
+
+actfunc:
+  value: hardsigm
+lr_ip:
+  value: 0.0009675383059324632
+lr_pi:
+  value: 0.008826363229847995
+tau_weights:
+  value: 18

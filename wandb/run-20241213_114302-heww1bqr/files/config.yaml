@@ -1,0 +1,42 @@
+_wandb:
+    value:
+        cli_version: 0.19.1
+        m: []
+        python_version: 3.11.2
+        t:
+            "1":
+                - 1
+                - 41
+                - 55
+            "2":
+                - 1
+                - 41
+                - 55
+            "3":
+                - 2
+                - 14
+                - 23
+                - 55
+            "4": 3.11.2
+            "5": 0.19.1
+            "8":
+                - 1
+                - 5
+            "12": 0.19.1
+            "13": linux-x86_64
+actfunc:
+    value: logexp
+hidden_size:
+    value: 50
+lr_ip:
+    value: 0.005225968399323581
+lr_pi:
+    value: 0.009078618852882468
+n_samples:
+    value: 546
+noise:
+    value: 0.20595451077146765
+tau_neu:
+    value: 2
+tau_weights:
+    value: 1

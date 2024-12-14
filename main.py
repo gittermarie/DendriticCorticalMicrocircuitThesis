@@ -107,7 +107,7 @@ def fig_s1(device):
         )
         print("---learning self-prediction---")
         va, wpf_hist, wpb_hist, wpi_hist, wip_hist, n = self_pred_training(
-            net, BATCH_SIZE, T, DT, TAU_NEU, device
+            net, 10000, BATCH_SIZE, T, DT, TAU_NEU, device
         )
         plot_synapse_distance(
             r"learning_selfpred ({}eps): synapse distance".format(n),
@@ -179,7 +179,7 @@ def fig_1(device, train_from_scratch=False):
     )
     with torch.no_grad():
         if train_from_scratch:
-            self_pred_training(net, BATCH_SIZE, T, DT, TAU_NEU, device)
+            self_pred_training(net, 10000, BATCH_SIZE, T, DT, TAU_NEU, device)
         else:
             net.load_weights(
                 r"weights/2024-12-05/weights_10000_{}.pt".format(net.net_topology)
@@ -276,7 +276,7 @@ def fig_2(device, train_from_scratch=False):
                 r"weights/2024-12-04/weights_10000_{}.pt".format(net.net_topology)
             )
         else:
-            self_pred_training(net, BATCH_SIZE, T, DT, TAU_NEU, device)
+            self_pred_training(net, 10000, BATCH_SIZE, T, DT, TAU_NEU, device)
 
         # train non-linear regression task
         global teacherNet

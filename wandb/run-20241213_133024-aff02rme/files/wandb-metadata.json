@@ -1,0 +1,31 @@
+{
+  "os":  "Linux-6.4.0-1-amd64-x86_64-with-glibc2.37",
+  "python":  "CPython 3.11.2",
+  "startedAt":  "2024-12-13T12:30:24.037641Z",
+  "program":  "/home/marie/Documents/UniOsna/bachelorarbeit/DendriticCorticalMicrocircuitThesis/hyperparameter_playground.ipynb",
+  "codePath":  "hyperparameter_playground.ipynb",
+  "git":  {
+    "remote":  "https://github.com/gittermarie/DendriticCorticalMicrocircuitThesis.git",
+    "commit":  "fea0f758fe9abd506944f4bf715188e6ae3d6c34"
+  },
+  "email":  "mariemagdalene.spreen@gmail.com",
+  "root":  "/home/marie/Documents/UniOsna/bachelorarbeit/DendriticCorticalMicrocircuitThesis",
+  "host":  "maries-debian",
+  "executable":  "/home/marie/Documents/UniOsna/bachelorarbeit/DendriticCorticalMicrocircuitThesis/venv/bin/python",
+  "codePathLocal":  "hyperparameter_playground.ipynb",
+  "cpu_count":  4,
+  "cpu_count_logical":  8,
+  "disk":  {
+    "/":  {
+      "total":  "501386043392",
+      "used":  "292439093248"
+    }
+  },
+  "memory":  {
+    "total":  "16451252224"
+  },
+  "cpu":  {
+    "count":  4,
+    "countLogical":  8
+  }
+}

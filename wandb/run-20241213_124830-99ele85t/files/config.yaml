@@ -1,0 +1,42 @@
+_wandb:
+    value:
+        cli_version: 0.19.1
+        m: []
+        python_version: 3.11.2
+        t:
+            "1":
+                - 1
+                - 41
+                - 55
+            "2":
+                - 1
+                - 41
+                - 55
+            "3":
+                - 2
+                - 14
+                - 23
+                - 55
+            "4": 3.11.2
+            "5": 0.19.1
+            "8":
+                - 1
+                - 5
+            "12": 0.19.1
+            "13": linux-x86_64
+actfunc:
+    value: hardsigm
+hidden_size:
+    value: 20
+lr_ip:
+    value: 0.007460153124145993
+lr_pi:
+    value: 0.005444715033762145
+n_samples:
+    value: 610
+noise:
+    value: 0.14153094191228335
+tau_neu:
+    value: 1
+tau_weights:
+    value: 21

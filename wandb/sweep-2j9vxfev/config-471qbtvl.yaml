@@ -1,0 +1,18 @@
+wandb_version: 1
+
+actfunc:
+  value: logexp
+hidden_size:
+  value: 30
+lr_ip:
+  value: 0.0004577300981622702
+lr_pi:
+  value: 0.00982438993991787
+n_samples:
+  value: 598
+noise:
+  value: 0.23065879917568569
+tau_neu:
+  value: 5
+tau_weights:
+  value: 6

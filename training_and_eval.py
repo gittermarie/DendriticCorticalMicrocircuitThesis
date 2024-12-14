@@ -100,7 +100,7 @@ def evalrun(net, samples, targets, batch_size, t, dt, tau_neu, device):
     )
 
 
-def self_pred_training(net, batch_size, t, dt, tau_neu, device):
+def self_pred_training(net, n_samples, batch_size, t, dt, tau_neu, device):
     net.to(device)
     net.train()
     try:
@@ -111,7 +111,7 @@ def self_pred_training(net, batch_size, t, dt, tau_neu, device):
         wip_hist = []
         va_topdown_hist = []
         va_cancelation_hist = []
-        for n in tqdm(range(10000)):
+        for n in tqdm(range(n_samples)):
             # Pick a random sample
             data = 2 * torch.rand(batch_size, net.net_topology[0], device=device) - 1
             if n == 0:

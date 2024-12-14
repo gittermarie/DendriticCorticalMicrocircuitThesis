@@ -1,0 +1,10 @@
+wandb_version: 1
+
+actfunc:
+  value: tanh
+lr_ip:
+  value: 0.005202984094960903
+lr_pi:
+  value: 0.004886643670409596
+tau_weights:
+  value: 19

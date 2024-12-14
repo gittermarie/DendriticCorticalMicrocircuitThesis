@@ -1,0 +1,18 @@
+wandb_version: 1
+
+actfunc:
+  value: tanh
+hidden_size:
+  value: 30
+lr_ip:
+  value: 0.005535197418182199
+lr_pi:
+  value: 0.0032679999575955304
+n_samples:
+  value: 728
+noise:
+  value: 0.2598562643268809
+tau_neu:
+  value: 2
+tau_weights:
+  value: 4

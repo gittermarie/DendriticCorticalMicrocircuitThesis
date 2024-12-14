@@ -1,0 +1,16 @@
+wandb_version: 1
+
+actfunc:
+  value: softrelu
+hidden_size:
+  value: 20
+lr_ip:
+  value: 0.00017570756674139588
+lr_pi:
+  value: 0.00534968498540816
+n_samples:
+  value: 10000
+noise:
+  value: 0.3
+tau_weights:
+  value: 9

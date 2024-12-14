@@ -1,0 +1,10 @@
+wandb_version: 1
+
+actfunc:
+  value: softrelu
+lr_ip:
+  value: 0.009131483102146513
+lr_pi:
+  value: 0.0021094422354558744
+tau_weights:
+  value: 27

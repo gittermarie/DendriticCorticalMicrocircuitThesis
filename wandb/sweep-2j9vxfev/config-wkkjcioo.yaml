@@ -1,0 +1,18 @@
+wandb_version: 1
+
+actfunc:
+  value: hardsigm
+hidden_size:
+  value: 20
+lr_ip:
+  value: 0.008290136933446412
+lr_pi:
+  value: 0.002666573961027403
+n_samples:
+  value: 257
+noise:
+  value: 0.17118969882539342
+tau_neu:
+  value: 2
+tau_weights:
+  value: 2
