@@ -5,23 +5,29 @@ import numpy as np
 from netClasses import *
 
 
-def validate_self_pred(net, batch_size, t, dt, tau_neu, device):
+def create_dataset(n_samples, batch_size, input_size, mu, sigma, device):
+    data = (
+        2 * sigma * torch.rand((n_samples, batch_size, input_size), device=device)
+        - sigma
+        + mu
+    )
+    return data
+
+
+def validate_self_pred(net, data, t, dt, tau_neu, device):
     "Compute performance of the model on the validation dataset and log a wandb.Table"
     net.eval()
     val_error = 0.0
     with torch.inference_mode():
-        correct = 0
         s, i = net.initHidden()
         # validate
-        for n in tqdm(range(100)):
-            data = 2 * torch.rand(batch_size, net.net_topology[0], device=device) - 1
-            data_trace = data.clone()
+        data_trace = data[0].clone()
+        for d in tqdm(data):
             for k in range(t):
-                data_trace += (dt / tau_neu) * (-data_trace + data)
-                s, i, va = net.stepper(data, s, i, track_va=True)
+                data_trace += (dt / tau_neu) * (-data_trace + d)
+                s, i, va = net.stepper(data_trace, s, i, track_va=True)
                 va_topdown, va_cancelation = va
             for k in range(1, net.net_depth):
-                # print new line
                 val_error += (
                     ((va_topdown[k - 1] + va_cancelation[k - 1]) ** 2)
                     .cpu()
@@ -29,23 +35,22 @@ def validate_self_pred(net, batch_size, t, dt, tau_neu, device):
                     .mean(1)[0]
                 )
 
-    return val_error / 100
+    return val_error / data.shape[0]
 
 
-def validate_nonlinear_regression(net, teacher_net, batch_size, t, dt, tau_neu, device):
+def validate_nonlinear_regression(net, data, teacher_net, t, dt, tau_neu, device):
     net.eval()
     val_error = 0.0
     val_loss = 0.0
 
     with torch.inference_mode():
         s, i = net.initHidden()
-        for n in range(100):
-            data = 2 * torch.rand(batch_size, net.net_topology[0], device=device) - 1
-            data_trace = data.clone()
+        data_trace = data[0].clone()
+        for d in tqdm(data):
             target = teacher_net(data)
             for k in range(t):
-                data_trace += (dt / tau_neu) * (-data_trace + data)
-                s, i, va = net.stepper(data, s, i, target=target, track_va=True)
+                data_trace += (dt / tau_neu) * (-data_trace + d)
+                s, i, va = net.stepper(data_trace, s, i, target=target, track_va=True)
                 va_topdown, va_cancelation = va
             for k in range(1, net.net_depth):
                 val_error += (
@@ -56,7 +61,7 @@ def validate_nonlinear_regression(net, teacher_net, batch_size, t, dt, tau_neu, 
                 )
             val_loss += ((s[-1] - target) ** 2).cpu().numpy().mean(1)[0]
 
-    return val_error / 100
+    return val_error / data.shape[0], val_loss / data.shape[0]
 
 
 def evalrun(net, samples, targets, batch_size, t, dt, tau_neu, device):
@@ -100,7 +105,7 @@ def evalrun(net, samples, targets, batch_size, t, dt, tau_neu, device):
     )
 
 
-def self_pred_training(net, batch_size, t, dt, tau_neu, device):
+def self_pred_training(net, data, t, dt, tau_neu, device):
     net.to(device)
     net.train()
     try:
@@ -111,18 +116,14 @@ def self_pred_training(net, batch_size, t, dt, tau_neu, device):
         wip_hist = []
         va_topdown_hist = []
         va_cancelation_hist = []
-        for n in tqdm(range(10000)):
-            # Pick a random sample
-            data = 2 * torch.rand(batch_size, net.net_topology[0], device=device) - 1
-            if n == 0:
-                data_trace = data.clone()
-
+        data_trace = data[0].clone()
+        for n in tqdm(range(data.shape[0])):
             for k in range(t):
                 # low-pass filter the data
-                data_trace += (dt / tau_neu) * (-data_trace + data)
+                data_trace += (dt / tau_neu) * (-data_trace + data[n])
                 s, i, va = net.stepper(data_trace, s, i, track_va=True)
                 # Track apical potential, neurons and synapses
-                if t == 0 and n % 20 == 0:
+                if k == 0 and n % 20 == 0:
                     va_topdown, va_cancelation = va
                     # Update the tabs with the current values
                     va_topdown_hist = net.updateHist(va_topdown_hist, va_topdown)
@@ -135,7 +136,7 @@ def self_pred_training(net, batch_size, t, dt, tau_neu, device):
                     wip_hist = net.updateHist(wip_hist, net.wip, param=True)
 
                 # Update the pyramidal-to-interneuron weights (NOT the pyramidal-to-pyramidal weights !)
-                net.updateWeights(data, s, i, freeze_feedback=True, selfpredict=True)
+                net.updateWeights(data[n], s, i, freeze_feedback=True, selfpredict=True)
     except KeyboardInterrupt:
         pass
 
@@ -151,25 +152,25 @@ def self_pred_training(net, batch_size, t, dt, tau_neu, device):
     )
 
 
-def target_training(n, net, data, target, s, i, t, dt, tau_neu):
+def target_training(net, data, target_net, s, i, t, dt, tau_neu):
     try:
-        for n in tqdm(range(n)):
+        data_trace = data[0].clone()
+        for n in tqdm(range(data.shape[0])):
             if n == 0:
-                data_trace = data.clone()
-                targ = None
+                target = None
             else:
-                targ = target
+                target = target_net(data[n])
 
             for k in range(t):
 
                 # low-pass filter the data
-                data_trace += (dt / tau_neu) * (-data_trace + data)
+                data_trace += (dt / tau_neu) * (-data_trace + data[n])
 
                 # Step the neural network
-                s, i = net.stepper(data_trace, s, i, target=targ)
+                s, i = net.stepper(data_trace, s, i, target=target)
 
                 # Update the pyramidal-to-interneuron weights (INCLUDING the pyramidal-to-pyramidal weights !)
-                net.updateWeights(data, s, i, freeze_feedback=True)
+                net.updateWeights(data[n], s, i, freeze_feedback=True)
 
     except KeyboardInterrupt:
         pass

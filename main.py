@@ -57,25 +57,7 @@ def softrelu(x):
     return gamma * torch.log(1 + torch.exp(beta * (x - theta)))
 
 
-def fig_s1(device):
-    net = dentriticNet(
-        T,
-        DT,
-        BATCH_SIZE,
-        size_tab=[30, 20, 10],
-        lr_pp=[0.0011875, 0.0005],
-        lr_ip=[0.0011875],
-        lr_pi=[0.0005],
-        ga=0.8,
-        gb=1,
-        gd=1,
-        glk=0.1,
-        gsom=0.8,
-        noise=0.1,
-        tau_weights=1,
-        rho=logexp,
-        initw=1,
-    )
+def fig_s1(net, device):
     with torch.no_grad():
         print("---before learning self-prediction---")
         eval_data = [
@@ -96,7 +78,7 @@ def fig_s1(device):
             )
         )
         plot_apical_trace(
-            "pre-learning_selfpred eval: apical trace",
+            "pre-learning_selfpred_eval_apicaltrace",
             5,
             net.net_depth + 1,
             data_trace_hist,
@@ -106,11 +88,12 @@ def fig_s1(device):
             s_hist,
         )
         print("---learning self-prediction---")
+        data = create_dataset(5000, BATCH_SIZE, net.net_topology[0], 0, 1, device)
         va, wpf_hist, wpb_hist, wpi_hist, wip_hist, n = self_pred_training(
-            net, BATCH_SIZE, T, DT, TAU_NEU, device
+            net, data, T, DT, TAU_NEU, device
         )
         plot_synapse_distance(
-            r"learning_selfpred ({}eps): synapse distance".format(n),
+            r"learning_selfpred({}eps)synapsedistance".format(n),
             net.net_depth + 1,
             wpf_hist,
             wpb_hist,
@@ -118,7 +101,7 @@ def fig_s1(device):
             wip_hist,
         )
         plot_synapse_trace(
-            r"learning_selfpred ({}eps): synapse trace".format(n),
+            r"learning_selfpred({}eps)_synapsetrace".format(n),
             net.net_depth + 1,
             wpf_hist,
             wpb_hist,
@@ -126,7 +109,7 @@ def fig_s1(device):
             wip_hist,
         )
         plot_apical_distance(
-            r"learning_selfpred ({}eps): apical distance".format(n),
+            r"learning_selfpred({}eps)_apicaldistance".format(n),
             net.net_depth + 1,
             va[0],
             va[1],
@@ -145,7 +128,7 @@ def fig_s1(device):
             )
         )
         plot_apical_trace(
-            "post-learning_selfpred eval: apical trace",
+            "post-learning_selfpred_eval_apicaltrace",
             5,
             net.net_depth + 1,
             data_trace_hist,
@@ -157,29 +140,11 @@ def fig_s1(device):
         plt.show()
 
 
-def fig_1(device, train_from_scratch=False):
-    # Build the net
-    net = dentriticNet(
-        T,
-        DT,
-        BATCH_SIZE,
-        size_tab=[30, 20, 10],
-        lr_pp=[0.0011875, 0.0005],
-        lr_ip=[0.0011875],
-        lr_pi=[0.0005],
-        ga=0.8,
-        gb=1,
-        gd=1,
-        glk=0.1,
-        gsom=0.8,
-        noise=0.1,
-        tau_weights=1,
-        rho=logexp,
-        initw=1,
-    )
+def fig_1(net, device, train_from_scratch=False):
     with torch.no_grad():
         if train_from_scratch:
-            self_pred_training(net, BATCH_SIZE, T, DT, TAU_NEU, device)
+            data = create_dataset(10000, BATCH_SIZE, net.net_topology[0], 0, 1, device)
+            self_pred_training(net, data, T, DT, TAU_NEU, device)
         else:
             net.load_weights(
                 r"weights/2024-12-05/weights_10000_{}.pt".format(net.net_topology)
@@ -192,7 +157,7 @@ def fig_1(device, train_from_scratch=False):
         teacherNet = teacherNet(SIZE_TAB_TEACHER, K_TAB)
 
         # pre-training evaluation
-        data = 2 * torch.rand(BATCH_SIZE, net.net_topology[0], device=device) - 1
+        data = create_dataset(1, BATCH_SIZE, net.net_topology[0], 0, 1, device)
         target = teacherNet.forward(data)
         data_trace_hist, va_topdown_hist, va_cancelation_hist, target_hist, s_hist = (
             evalrun(
@@ -207,7 +172,7 @@ def fig_1(device, train_from_scratch=False):
             )
         )
         plot_apical_trace(
-            "pre-training_target eval: apical trace",
+            "pre-training_target_eval_apicaltrace",
             5,
             net.net_depth + 1,
             data_trace_hist,
@@ -219,7 +184,7 @@ def fig_1(device, train_from_scratch=False):
         # target training
         n = 15
         s, i = net.initHidden(device=device)
-        target_training(n, net, data, target, s, i, T, DT, TAU_NEU)
+        target_training(net, data, target, s, i, T, DT, TAU_NEU)
         # post-training evaluation
         data_trace_hist, va_topdown_hist, va_cancelation_hist, target_hist, s_hist = (
             evalrun(
@@ -234,7 +199,7 @@ def fig_1(device, train_from_scratch=False):
             )
         )
         plot_apical_trace(
-            r"post-training_target eval ({}eps): apical trace".format(n),
+            r"post-training_target_eval({}eps)_apicaltrace".format(n),
             5,
             net.net_depth + 1,
             data_trace_hist,
@@ -246,26 +211,7 @@ def fig_1(device, train_from_scratch=False):
         plt.show()
 
 
-def fig_2(device, train_from_scratch=False):
-    # Build the net
-    net = dentriticNet(
-        T,
-        DT,
-        BATCH_SIZE,
-        size_tab=[30, 50, 10],
-        lr_pp=[0.0011875, 0.0005],
-        lr_ip=[0.0011875],
-        lr_pi=[0.0059375],
-        ga=0.8,
-        gb=1,
-        gd=1,
-        glk=0.1,
-        gsom=0.8,
-        noise=0.3,
-        tau_weights=30,
-        rho=softrelu,
-        initw=0.1,
-    )
+def fig_2(net, device, train_from_scratch=False):
     net.to(device)
     net.train()
 
@@ -276,7 +222,7 @@ def fig_2(device, train_from_scratch=False):
                 r"weights/2024-12-04/weights_10000_{}.pt".format(net.net_topology)
             )
         else:
-            self_pred_training(net, BATCH_SIZE, T, DT, TAU_NEU, device)
+            self_pred_training(net, 10000, BATCH_SIZE, T, DT, TAU_NEU, device)
 
         # train non-linear regression task
         global teacherNet
@@ -307,5 +253,43 @@ if __name__ == "__main__":
         device = torch.device("cpu")
         print("running on CPU")
 
-    # fig_s1()
-    fig_s1(device)
+    net_1 = dendriticNet(
+        T,
+        DT,
+        BATCH_SIZE,
+        size_tab=[30, 20, 10],
+        lr_pp=[0.0011875, 0.0005],
+        lr_ip=[0.0011875],
+        lr_pi=[0.0005],
+        ga=0.8,
+        gb=1,
+        gd=1,
+        glk=0.1,
+        gsom=0.8,
+        noise=0.1,
+        tau_weights=30,
+        rho=logexp,
+        initw=1,
+    )
+    net_2 = dendriticNet(
+        T,
+        DT,
+        BATCH_SIZE,
+        size_tab=[30, 50, 10],
+        lr_pp=[0.0011875, 0.0005],
+        lr_ip=[0.0011875],
+        lr_pi=[0.0059375],
+        ga=0.8,
+        gb=1,
+        gd=1,
+        glk=0.1,
+        gsom=0.8,
+        noise=0.3,
+        tau_weights=30,
+        rho=softrelu,
+        initw=0.1,
+    )
+
+    fig_s1(net_1, device)
+    # fig_1(net_1, device)
+    # fig_2(net_2, device)

@@ -10,7 +10,7 @@ import os
 import datetime
 
 
-class dentriticNet(nn.Module):
+class dendriticNet(nn.Module):
     def __init__(
         self,
         T,
@@ -32,7 +32,7 @@ class dentriticNet(nn.Module):
         freeze_feedback=True,
         init_selfpred=False,
     ):
-        super(dentriticNet, self).__init__()
+        super(dendriticNet, self).__init__()
 
         self.T = T
         self.dt = dt
@@ -51,6 +51,7 @@ class dentriticNet(nn.Module):
         self.tau_weights = tau_weights
         self.freeze_feedback = freeze_feedback
         self.rho = rho
+        self.initw = initw
 
         # Initialize weights
         self.wpf = nn.ModuleList([])
@@ -59,10 +60,11 @@ class dentriticNet(nn.Module):
         self.wip = nn.ModuleList([])
 
         # Build input weights
-        self.wpf.append(nn.Linear(self.net_topology[0], self.net_topology[1]))
+        self.wpf.append(
+            nn.Linear(self.net_topology[0], self.net_topology[1], bias=False)
+        )
 
         # Build weights for hidden layers
-        print(self.net_depth)
         for i in range(1, self.net_depth):
             self.wpf.append(
                 nn.Linear(self.net_topology[i], self.net_topology[i + 1], bias=False)
@@ -105,8 +107,17 @@ class dentriticNet(nn.Module):
                 hist[k] = torch.cat((hist[k], tab[k].weight.unsqueeze(2)), dim=2)
         return hist
 
-    def stepper(self, data, s, i, track_va=False, target=None):
+    def forward(self, data, s, i, track_va=False, target=None):
+        for t in range(self.T):
+            if track_va:
+                s, i, va = self.stepper(data, s, i, True, target)
+            else:
+                s, i = self.stepper(data, s, i, track_va, target)
+        if track_va:
+            return s, i, va
+        return s, i
 
+    def stepper(self, data, s, i, track_va=False, target=None):
         # derivatives
         dsdt = []
         didt = []
@@ -310,6 +321,10 @@ class dentriticNet(nn.Module):
             self.wip[k].weight += (
                 self.lr_ip[k] * (self.dt / self.tau_weights) * gradwip[k]
             )
+
+    def extra_repr(self):
+
+        return f"T-{self.T}_dt-{self.dt}_topology-{'-'.join(map(str,self.net_topology))}_lrpp-{'-'.join(map(str,self.lr_pp))}_lrpi-{'-'.join(map(str,self.lr_pi))}_lrip-{'-'.join(map(str,self.lr_ip))}_ga-{self.ga}_gb-{self.gb}_gd-{self.gd}_glk-{self.glk}_gsom-{self.gsom}_rho-{self.rho.__name__}_initw-{self.initw}"
 
 
 class teacherNet(nn.Module):
