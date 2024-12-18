@@ -9,11 +9,11 @@ import datetime
 def save_graphic(filename, fig):
     now = datetime.datetime.now()
     date_string = now.strftime("%Y-%m-%d")
-    time = now.strftime("%H:%M:%S")
+    hour = now.strftime("%H")
     # make sure the directory graphics/date_string exists
     os.makedirs(r"graphics/" + date_string, exist_ok=True)
     fig.savefig(
-        r"graphics/" + date_string + "/" + filename + "_" + time + ".png",
+        r"graphics/" + date_string + "/" + filename + "_" + hour + ".png",
         pad_inches=0,
     )
 
