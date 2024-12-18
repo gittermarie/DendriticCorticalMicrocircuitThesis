@@ -96,8 +96,9 @@ class dendriticNet(nn.Module):
                 self.wpb[i].weight.data = -self.wpi[i].weight.data.clone()
 
     def updateHist(self, hist, tab, param=False):
+        # instantiate a first empty tensor that is on the same device as the net
         if hist == []:
-            hist = [torch.empty(0) for _ in range(len(tab))]
+            hist = [torch.empty(0, device=self.which_device()) for _ in range(len(tab))]
 
         if not param:
             for k in range(len(tab)):
@@ -145,6 +146,7 @@ class dendriticNet(nn.Module):
                 torch.full(
                     (self.net_topology[k + 2], self.net_topology[k + 2]),
                     1 / self.net_topology[k + 2],
+                    device=s[k + 1].device
                 ),
                 self.rho(s[k + 1]).squeeze(0),
             ).unsqueeze(0)
@@ -153,14 +155,14 @@ class dendriticNet(nn.Module):
                 -self.glk * s[k]
                 + self.gb * (vb - s[k])
                 + self.ga * (va - s[k])
-                + self.noise * torch.randn_like(s[k])
+                + self.noise * torch.randn_like(s[k], device=s[k].device)
             )
             # Compute total derivative of the interneuron (Eq. 2)
             didt.append(
                 -self.glk * i[k]
                 + self.gd * (vi - i[k])
                 + self.gsom * (i_nudge - i[k])
-                + self.noise * torch.randn_like(i[k])
+                + self.noise * torch.randn_like(i[k], device=i[k].device)
             )
 
         # Compute derivative of the output layer
@@ -326,6 +328,8 @@ class dendriticNet(nn.Module):
 
         return f"T-{self.T}_dt-{self.dt}_topology-{'-'.join(map(str,self.net_topology))}_lrpp-{'-'.join(map(str,self.lr_pp))}_lrpi-{'-'.join(map(str,self.lr_pi))}_lrip-{'-'.join(map(str,self.lr_ip))}_ga-{self.ga}_gb-{self.gb}_gd-{self.gd}_glk-{self.glk}_gsom-{self.gsom}_rho-{self.rho.__name__}_initw-{self.initw}"
 
+    def which_device(self):
+        return next(self.parameters()).device
 
 class teacherNet(nn.Module):
     def __init__(self, size_tab, k_tab):
