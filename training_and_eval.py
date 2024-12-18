@@ -19,7 +19,7 @@ def validate_self_pred(net, data, t, dt, tau_neu, device):
     net.eval()
     val_error = 0.0
     with torch.inference_mode():
-        s, i = net.initHidden()
+        s, i = net.initHidden(device=device)
         # validate
         data_trace = data[0].clone()
         for d in tqdm(data):
@@ -44,7 +44,7 @@ def validate_nonlinear_regression(net, data, teacher_net, t, dt, tau_neu, device
     val_loss = 0.0
 
     with torch.inference_mode():
-        s, i = net.initHidden()
+        s, i = net.initHidden(device=device)
         data_trace = data[0].clone()
         for d in tqdm(data):
             target = teacher_net(data)
@@ -82,7 +82,6 @@ def evalrun(net, samples, targets, batch_size, t, dt, tau_neu, device):
             # Track apical potential, neurons and synapses
             va_topdown, va_cancelation = va
 
-            # Update the tabs with the current values
             data_trace_hist = torch.cat(
                 (data_trace_hist, data_trace.unsqueeze(2)), dim=2
             )

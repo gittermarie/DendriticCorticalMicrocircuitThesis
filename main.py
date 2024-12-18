@@ -17,9 +17,6 @@ T = 1000
 # time constant of the input patterns (default: 3)
 TAU_NEU = 3
 
-# selects cuda device (default -1, -1 to select )
-DEVICE_LABEL = -1
-
 # freeze the dynamics of the feedback weights (default: False)
 FREEZE_FEEDBACK = False
 
@@ -58,6 +55,7 @@ def softrelu(x):
 
 
 def fig_s1(net, device):
+    net.to(device)
     with torch.no_grad():
         print("---before learning self-prediction---")
         eval_data = [
@@ -223,10 +221,11 @@ def fig_2(net, device, train_from_scratch=False):
             )
         else:
             self_pred_training(net, 10000, BATCH_SIZE, T, DT, TAU_NEU, device)
-
+        net.to(device)
         # train non-linear regression task
         global teacherNet
         teacherNet = teacherNet(SIZE_TAB_TEACHER, K_TAB)
+        teacherNet.to(device)
         s, i = net.initHidden(device=device)
         try:
             for n in range(1000):
@@ -247,12 +246,11 @@ def fig_2(net, device, train_from_scratch=False):
 
 if __name__ == "__main__":
     # Define the device
-    if DEVICE_LABEL >= 0:
-        device = torch.device("cuda:" + str(DEVICE_LABEL) + ")")
-    else:
-        device = torch.device("cpu")
-        print("running on CPU")
+    print(torch.cuda.is_available())
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(device)
 
+    # Define the networks   
     net_1 = dendriticNet(
         T,
         DT,
