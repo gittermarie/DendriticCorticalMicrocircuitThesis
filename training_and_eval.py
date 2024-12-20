@@ -124,9 +124,6 @@ def self_pred_training(net, data, t, dt, tau_neu, device):
                 # Track apical potential, neurons and synapses
                 if k == 0 and n % 20 == 0:
                     va_topdown, va_cancelation = va
-                    print(va_topdown)
-                    print(va_cancelation)
-                    print(net.wpf[0].weight)
                     # Update the tabs with the current values
                     va_topdown_hist = net.updateHist(va_topdown_hist, va_topdown)
                     va_cancelation_hist = net.updateHist(

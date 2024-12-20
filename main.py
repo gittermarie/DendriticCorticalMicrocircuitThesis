@@ -248,7 +248,8 @@ def fig_2(net, device, train_from_scratch=False):
 if __name__ == "__main__":
     # Define the device
     print(torch.cuda.is_available())
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
     print(device)
 
     # Define the networks
