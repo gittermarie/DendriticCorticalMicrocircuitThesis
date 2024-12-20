@@ -2,7 +2,7 @@ import torch.optim as optim
 from tqdm import tqdm
 import numpy as np
 
-from netClasses import *
+from netClasses_eff import *
 
 
 def create_dataset(n_samples, batch_size, input_size, mu, sigma, device):
@@ -124,6 +124,9 @@ def self_pred_training(net, data, t, dt, tau_neu, device):
                 # Track apical potential, neurons and synapses
                 if k == 0 and n % 20 == 0:
                     va_topdown, va_cancelation = va
+                    print(va_topdown)
+                    print(va_cancelation)
+                    print(net.wpf[0].weight)
                     # Update the tabs with the current values
                     va_topdown_hist = net.updateHist(va_topdown_hist, va_topdown)
                     va_cancelation_hist = net.updateHist(
@@ -135,7 +138,7 @@ def self_pred_training(net, data, t, dt, tau_neu, device):
                     wip_hist = net.updateHist(wip_hist, net.wip, param=True)
 
                 # Update the pyramidal-to-interneuron weights (NOT the pyramidal-to-pyramidal weights !)
-                net.updateWeights(data[n], s, i, freeze_feedback=True, selfpredict=True)
+                net.updateWeights(data[n], s, i)
     except KeyboardInterrupt:
         pass
 
@@ -169,7 +172,7 @@ def target_training(net, data, target_net, s, i, t, dt, tau_neu):
                 s, i = net.stepper(data_trace, s, i, target=target)
 
                 # Update the pyramidal-to-interneuron weights (INCLUDING the pyramidal-to-pyramidal weights !)
-                net.updateWeights(data[n], s, i, freeze_feedback=True)
+                net.updateWeights(data[n], s, i, target=target)
 
     except KeyboardInterrupt:
         pass
