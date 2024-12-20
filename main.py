@@ -1,7 +1,7 @@
 import torch.optim as optim
 import numpy as np
 
-from netClasses import *
+from netClasses_eff import *
 from plotFunctions import *
 from training_and_eval import *
 
@@ -139,6 +139,7 @@ def fig_s1(net, device):
 
 
 def fig_1(net, device, train_from_scratch=False):
+    net.lr_pf = [0.0011875, 0.0005]
     with torch.no_grad():
         if train_from_scratch:
             data = create_dataset(10000, BATCH_SIZE, net.net_topology[0], 0, 1, device)
@@ -247,18 +248,20 @@ def fig_2(net, device, train_from_scratch=False):
 if __name__ == "__main__":
     # Define the device
     print(torch.cuda.is_available())
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cpu")
     print(device)
 
-    # Define the networks   
+    # Define the networks
     net_1 = dendriticNet(
         T,
         DT,
         BATCH_SIZE,
         size_tab=[30, 20, 10],
-        lr_pp=[0.0011875, 0.0005],
+        lr_pf=[0, 0],
         lr_ip=[0.0011875],
         lr_pi=[0.0005],
+        lr_pb=[0],
         ga=0.8,
         gb=1,
         gd=1,
@@ -274,9 +277,10 @@ if __name__ == "__main__":
         DT,
         BATCH_SIZE,
         size_tab=[30, 50, 10],
-        lr_pp=[0.0011875, 0.0005],
+        lr_pf=[0.0011875, 0.0005],
         lr_ip=[0.0011875],
         lr_pi=[0.0059375],
+        lr_pb=[0],
         ga=0.8,
         gb=1,
         gd=1,
