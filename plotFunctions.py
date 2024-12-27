@@ -158,7 +158,7 @@ def plot_neuron_trace(fig_title, net_depth, data_trace_hist, s_hist):
     plt.subplot(net_depth, 1, 1)
     plt.plot(
         0.1 * np.linspace(0, data_trace_hist.size(2) - 1, data_trace_hist.size(2)),
-        data_trace_hist.mean(1).squeeze(0).cpu().numpy(),
+        data_trace_hist.mean(1).mean(0).cpu().numpy(),
         color="green",
         linewidth=3,
         alpha=0.8,
@@ -181,7 +181,7 @@ def plot_neuron_trace(fig_title, net_depth, data_trace_hist, s_hist):
         plt.subplot(net_depth, 1, 1 + i)
         plt.plot(
             0.1 * np.linspace(0, s_hist[i - 1].size(2) - 1, s_hist[i - 1].size(2)),
-            s_hist[i - 1].mean(1).squeeze(0).cpu().numpy(),
+            s_hist[i - 1].mean(1).mean(0).cpu().numpy(),
             color="blue",
             linewidth=3,
             alpha=0.8,
@@ -345,7 +345,7 @@ def plot_apical_distance(fig_title, net_depth, va_topdown_hist, va_cancelation_h
             .cpu()
             .numpy()
             .sum(1)
-            .squeeze(0),
+            .mean(0),
             color="grey",
             linewidth=3,
             alpha=0.5,

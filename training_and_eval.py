@@ -2,7 +2,7 @@ import torch.optim as optim
 from tqdm import tqdm
 import numpy as np
 
-from netClasses_eff import *
+from netClasses import *
 
 
 def create_dataset(n_samples, batch_size, input_size, mu, sigma, device):
@@ -19,13 +19,12 @@ def validate_self_pred(net, data, t, dt, tau_neu, device):
     net.eval()
     val_error = 0.0
     with torch.inference_mode():
-        s, i = net.initHidden(device=device)
         # validate
         data_trace = data[0].clone()
         for d in tqdm(data):
             for k in range(t):
                 data_trace += (dt / tau_neu) * (-data_trace + d)
-                s, i, va = net.stepper(data_trace, s, i, track_va=True)
+                va = net.stepper(data_trace, track_va=True)
                 va_topdown, va_cancelation = va
             for k in range(1, net.net_depth):
                 val_error += (
@@ -44,13 +43,12 @@ def validate_nonlinear_regression(net, data, teacher_net, t, dt, tau_neu, device
     val_loss = 0.0
 
     with torch.inference_mode():
-        s, i = net.initHidden(device=device)
         data_trace = data[0].clone()
         for d in tqdm(data):
             target = teacher_net(data)
             for k in range(t):
                 data_trace += (dt / tau_neu) * (-data_trace + d)
-                s, i, va = net.stepper(data_trace, s, i, target=target, track_va=True)
+                va = net.stepper(data_trace, target=target)
                 va_topdown, va_cancelation = va
             for k in range(1, net.net_depth):
                 val_error += (
@@ -59,26 +57,25 @@ def validate_nonlinear_regression(net, data, teacher_net, t, dt, tau_neu, device
                     .numpy()
                     .mean(1)[0]
                 )
-            val_loss += ((s[-1] - target) ** 2).cpu().numpy().mean(1)[0]
+            val_loss += ((net.s[-1] - target) ** 2).cpu().numpy().mean(1)[0]
 
     return val_error / data.shape[0], val_loss / data.shape[0]
 
 
-def evalrun(net, samples, targets, batch_size, t, dt, tau_neu, device):
-    s, i = net.initHidden(device=device)
+def evalrun(net, data, targets, batch_size, t, dt, tau_neu, device):
     va_topdown_hist = []
     va_cancelation_hist = []
     s_hist = []
     target_hist = []
-    data_trace = samples[0].clone()
-    data_trace_hist = samples[0].unsqueeze(2)
-    for n, sample in enumerate(samples):
+    data_trace = data[0].clone()
+    data_trace_hist = data[0].unsqueeze(2)
+    for n in range(len(data)):
         print("evalrun, sample {}".format(1 + n))
         for k in range(t):
             # low-pass filter the data
-            data_trace += (dt / tau_neu) * (-data_trace + sample)
+            data_trace += (dt / tau_neu) * (-data_trace + data[n])
             # Step the neural network
-            s, i, va = net.stepper(data_trace, s, i, track_va=True, target=targets[n])
+            va = net.stepper(data_trace, target=targets[n])
             # Track apical potential, neurons and synapses
             va_topdown, va_cancelation = va
 
@@ -94,7 +91,7 @@ def evalrun(net, samples, targets, batch_size, t, dt, tau_neu, device):
                 target_hist.append(targets[n].clone().unsqueeze(2).cpu().numpy())
             va_topdown_hist = net.updateHist(va_topdown_hist, va_topdown)
             va_cancelation_hist = net.updateHist(va_cancelation_hist, va_cancelation)
-            s_hist = net.updateHist(s_hist, s)
+            s_hist = net.updateHist(s_hist, net.s)
     return (
         data_trace_hist,
         va_topdown_hist,
@@ -108,7 +105,6 @@ def self_pred_training(net, data, t, dt, tau_neu, device):
     net.to(device)
     net.train()
     try:
-        s, i = net.initHidden(device=device)
         wpf_hist = []
         wpb_hist = []
         wpi_hist = []
@@ -120,7 +116,7 @@ def self_pred_training(net, data, t, dt, tau_neu, device):
             for k in range(t):
                 # low-pass filter the data
                 data_trace += (dt / tau_neu) * (-data_trace + data[n])
-                s, i, va = net.stepper(data_trace, s, i, track_va=True)
+                va = net.stepper(data_trace)
                 # Track apical potential, neurons and synapses
                 if k == 0 and n % 20 == 0:
                     va_topdown, va_cancelation = va
@@ -129,13 +125,15 @@ def self_pred_training(net, data, t, dt, tau_neu, device):
                     va_cancelation_hist = net.updateHist(
                         va_cancelation_hist, va_cancelation
                     )
+                    print("wpi max", torch.max(net.wpi[0].weight))
+                    print("wip max", torch.max(net.wip[0].weight))
                     wpf_hist = net.updateHist(wpf_hist, net.wpf, param=True)
                     wpb_hist = net.updateHist(wpb_hist, net.wpb, param=True)
                     wpi_hist = net.updateHist(wpi_hist, net.wpi, param=True)
                     wip_hist = net.updateHist(wip_hist, net.wip, param=True)
 
                 # Update the pyramidal-to-interneuron weights (NOT the pyramidal-to-pyramidal weights !)
-                net.updateWeights(data[n], s, i)
+                net.updateWeights(data[n])
     except KeyboardInterrupt:
         pass
 
@@ -151,7 +149,7 @@ def self_pred_training(net, data, t, dt, tau_neu, device):
     )
 
 
-def target_training(net, data, target_net, s, i, t, dt, tau_neu):
+def target_training(net, data, target_net, t, dt, tau_neu):
     try:
         data_trace = data[0].clone()
         for n in tqdm(range(data.shape[0])):
@@ -166,11 +164,10 @@ def target_training(net, data, target_net, s, i, t, dt, tau_neu):
                 data_trace += (dt / tau_neu) * (-data_trace + data[n])
 
                 # Step the neural network
-                s, i = net.stepper(data_trace, s, i, target=target)
+                va = net.stepper(data_trace, target=target)
 
                 # Update the pyramidal-to-interneuron weights (INCLUDING the pyramidal-to-pyramidal weights !)
-                net.updateWeights(data[n], s, i, target=target)
+                net.updateWeights(data[n], target=target)
 
     except KeyboardInterrupt:
         pass
-    return s, i

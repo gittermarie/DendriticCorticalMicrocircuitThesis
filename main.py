@@ -1,12 +1,12 @@
 import torch.optim as optim
 import numpy as np
 
-from netClasses_eff import *
+from netClasses import *
 from plotFunctions import *
 from training_and_eval import *
 
 # input batch size for training (default: 0)
-BATCH_SIZE = 1
+BATCH_SIZE = 5
 
 # time discretization (default: 0.1)
 DT = 0.1
@@ -44,7 +44,7 @@ def tanh(x):
 
 
 def logexp(x):
-    return torch.log(0 + torch.exp(x))
+    return torch.log(1 + torch.exp(x))
 
 
 def softrelu(x):
@@ -57,6 +57,7 @@ def softrelu(x):
 def fig_s1(net, device):
     net.to(device)
     with torch.no_grad():
+
         print("---before learning self-prediction---")
         eval_data = [
             2 * torch.rand(BATCH_SIZE, net.net_topology[0], device=device) - 1
@@ -86,12 +87,12 @@ def fig_s1(net, device):
             s_hist,
         )
         print("---learning self-prediction---")
-        data = create_dataset(5000, BATCH_SIZE, net.net_topology[0], 0, 1, device)
+        data = create_dataset(500, BATCH_SIZE, net.net_topology[0], 0, 1, device)
         va, wpf_hist, wpb_hist, wpi_hist, wip_hist, n = self_pred_training(
             net, data, T, DT, TAU_NEU, device
         )
         plot_synapse_distance(
-            r"learning_selfpred({}eps)synapsedistance".format(n),
+            r"learning_selfpred({}eps)synapsedistance".format(n * BATCH_SIZE),
             net.net_depth + 1,
             wpf_hist,
             wpb_hist,
@@ -99,7 +100,7 @@ def fig_s1(net, device):
             wip_hist,
         )
         plot_synapse_trace(
-            r"learning_selfpred({}eps)_synapsetrace".format(n),
+            r"learning_selfpred({}eps)_synapsetrace".format(n * BATCH_SIZE),
             net.net_depth + 1,
             wpf_hist,
             wpb_hist,
@@ -107,11 +108,12 @@ def fig_s1(net, device):
             wip_hist,
         )
         plot_apical_distance(
-            r"learning_selfpred({}eps)_apicaldistance".format(n),
+            r"learning_selfpred({}eps)_apicaldistance".format(n * BATCH_SIZE),
             net.net_depth + 1,
             va[0],
             va[1],
         )
+
         print("---after learning self-prediction---")
         data_trace_hist, va_topdown_hist, va_cancelation_hist, target_hist, s_hist = (
             evalrun(
@@ -135,7 +137,7 @@ def fig_s1(net, device):
             target_hist,
             s_hist,
         )
-        plt.show()
+        # plt.show()
 
 
 def fig_1(net, device, train_from_scratch=False):
@@ -182,8 +184,7 @@ def fig_1(net, device, train_from_scratch=False):
         )
         # target training
         n = 15
-        s, i = net.initHidden(device=device)
-        target_training(net, data, target, s, i, T, DT, TAU_NEU)
+        target_training(net, data, target, T, DT, TAU_NEU)
         # post-training evaluation
         data_trace_hist, va_topdown_hist, va_cancelation_hist, target_hist, s_hist = (
             evalrun(
@@ -207,7 +208,7 @@ def fig_1(net, device, train_from_scratch=False):
             target_hist,
             s_hist,
         )
-        plt.show()
+        # plt.show()
 
 
 def fig_2(net, device, train_from_scratch=False):
@@ -227,12 +228,11 @@ def fig_2(net, device, train_from_scratch=False):
         global teacherNet
         teacherNet = teacherNet(SIZE_TAB_TEACHER, K_TAB)
         teacherNet.to(device)
-        s, i = net.initHidden(device=device)
         try:
             for n in range(1000):
                 data = torch.rand(BATCH_SIZE, net.net_topology[0], device=device)
                 target = teacherNet.forward(data)
-                s, i = target_training(15, net, data, target, s, i, T, DT, TAU_NEU)
+                target_training(15, net, data, target, T, DT, TAU_NEU)
         except KeyboardInterrupt:
             pass
 
@@ -242,7 +242,7 @@ def fig_2(net, device, train_from_scratch=False):
             )
         )
 
-        plt.show()
+        # plt.show()
 
 
 if __name__ == "__main__":
@@ -271,6 +271,7 @@ if __name__ == "__main__":
         tau_weights=30,
         rho=logexp,
         initw=1,
+        device=device,
     )
     net_2 = dendriticNet(
         T,
