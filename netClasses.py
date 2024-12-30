@@ -94,10 +94,11 @@ class dendriticNet(nn.Module):
         self.dWpi = [dWpi.to(device) for dWpi in self.dWpi]
         self.dWpb = [dWpb.to(device) for dWpb in self.dWpb]
         self.dWip = [dWip.to(device) for dWip in self.dWip]
-        self.wpf = [wpf.to(device) for wpf in self.wpf]
-        self.wpb = [wpb.to(device) for wpb in self.wpb]
-        self.wpi = [wpi.to(device) for wpi in self.wpi]
-        self.wip = [wip.to(device) for wip in self.wip]
+        # move module lists to device
+        self.wpf = self.wpf.to(device)
+        self.wpb = self.wpb.to(device)
+        self.wpi = self.wpi.to(device)
+        self.wip = self.wip.to(device)
         return self
 
     def stepper(self, data, target=None):
