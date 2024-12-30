@@ -104,6 +104,14 @@ def evalrun(net, data, targets, batch_size, t, dt, tau_neu, device):
 def self_pred_training(net, data, t, dt, tau_neu, device):
     net.to(device)
     net.train()
+    dataset = torch.utils.data.TensorDataset(data)
+    dataloader = torch.utils.data.DataLoader(
+        dataset,
+        batch_size=data.shape[0],
+        shuffle=True,
+        pin_memory=True,
+        num_workers=2,
+    )
     try:
         wpf_hist = []
         wpb_hist = []
@@ -112,28 +120,29 @@ def self_pred_training(net, data, t, dt, tau_neu, device):
         va_topdown_hist = []
         va_cancelation_hist = []
         data_trace = data[0].clone()
-        for n in tqdm(range(data.shape[0])):
-            for k in range(t):
-                # low-pass filter the data
-                data_trace += (dt / tau_neu) * (-data_trace + data[n])
-                va = net.stepper(data_trace)
-                # Track apical potential, neurons and synapses
-                if k == 0 and n % 20 == 0:
-                    va_topdown, va_cancelation = va
-                    # Update the tabs with the current values
-                    va_topdown_hist = net.updateHist(va_topdown_hist, va_topdown)
-                    va_cancelation_hist = net.updateHist(
-                        va_cancelation_hist, va_cancelation
-                    )
-                    print("wpi max", torch.max(net.wpi[0].weight))
-                    print("wip max", torch.max(net.wip[0].weight))
-                    wpf_hist = net.updateHist(wpf_hist, net.wpf, param=True)
-                    wpb_hist = net.updateHist(wpb_hist, net.wpb, param=True)
-                    wpi_hist = net.updateHist(wpi_hist, net.wpi, param=True)
-                    wip_hist = net.updateHist(wip_hist, net.wip, param=True)
+        for n in tqdm(range(data.shape[0] // data.shape[1])):
+            for batch in dataloader:
+                batch = batch[0].to(device)
+                data_trace = batch[0].clone()
+                for k in range(t):
+                    # low-pass filter the data
+                    data_trace += (dt / tau_neu) * (-data_trace + data[n])
+                    va = net.stepper(data_trace)
+                    # Track apical potential, neurons and synapses
+                    if k == 0 and n % 20 == 0:
+                        va_topdown, va_cancelation = va
+                        # Update the tabs with the current values
+                        va_topdown_hist = net.updateHist(va_topdown_hist, va_topdown)
+                        va_cancelation_hist = net.updateHist(
+                            va_cancelation_hist, va_cancelation
+                        )
+                        wpf_hist = net.updateHist(wpf_hist, net.wpf, param=True)
+                        wpb_hist = net.updateHist(wpb_hist, net.wpb, param=True)
+                        wpi_hist = net.updateHist(wpi_hist, net.wpi, param=True)
+                        wip_hist = net.updateHist(wip_hist, net.wip, param=True)
 
-                # Update the pyramidal-to-interneuron weights (NOT the pyramidal-to-pyramidal weights !)
-                net.updateWeights(data[n])
+                    # Update the pyramidal-to-interneuron weights (NOT the pyramidal-to-pyramidal weights !)
+                    net.updateWeights(data[n])
     except KeyboardInterrupt:
         pass
 
