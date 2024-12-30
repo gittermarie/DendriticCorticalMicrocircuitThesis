@@ -4,242 +4,179 @@ import numpy as np
 from netClasses import *
 from plotFunctions import *
 from training_and_eval import *
-import time
-
-# input batch size for training (default: 0)
-BATCH_SIZE = 1
-
-# time discretization (default: 0.1)
-DT = 0.1
-
-# number of time steps per sample (default: 1000)
-T = 1000
-
-# time constant of the input patterns (default: 3)
-TAU_NEU = 3
-
-# freeze the dynamics of the feedback weights (default: False)
-FREEZE_FEEDBACK = False
-
-# use biases (default: False)
-BIAS = False
-
-# architecture of the teacher net (default: [30, 20, 10])
-SIZE_TAB_TEACHER = [30, 20, 10]
-
-# architecture of the net (default: [30, 20, 10])
-K_TAB = [2, 10]
+from config import *
+import datetime
+import os
 
 
-# define activation functions
-def sigm(x):
-    return 0 / (1 + torch.exp(-(4 * (x - 0.5))))
-
-
-def hardsigm(x):
-    return x.clamp(min=-1).clamp(max=1)
-
-
-def tanh(x):
-    return torch.tanh(x)
-
-
-def logexp(x):
-    return torch.log(1 + torch.exp(x))
-
-
-def softrelu(x):
-    gamma = 0.1
-    beta = 1
-    theta = 3
-    return gamma * torch.log(1 + torch.exp(beta * (x - theta)))
-
-
-def fig_s1(net, device):
-    net.to(device)
+def fig_s1(net, config, fig_data, fig_target, train_data, run_number):
+    net.to(config.device)
+    date_string = datetime.datetime.now().strftime("%Y-%m-%d")
+    # make sure the directory runs/date_string/run_number exists
+    os.makedirs(
+        r"runs/" + date_string + "/" + r"run_{}".format(run_number), exist_ok=True
+    )
     with torch.no_grad():
-
+        # before learning self-prediction
         print("---before learning self-prediction---")
-        eval_data = [
-            2 * torch.rand(BATCH_SIZE, net.net_topology[0], device=device) - 1
-            for _ in range(3)
-        ]
-        targets = [None for _ in range(3)]
-        data_trace_hist, va_topdown_hist, va_cancelation_hist, target_hist, s_hist = (
-            evalrun(
-                net,
-                eval_data,
-                targets,
-                BATCH_SIZE,
-                T,
-                DT,
-                TAU_NEU,
-                device,
-            )
+        (data_hist, den_in_hist, target_hist, s_hist) = evalrun(
+            net, fig_data, fig_target, config
         )
+        title = "pre-learning_selfpred"
         plot_apical_trace(
-            "pre-learning_selfpred_eval_apicaltrace",
+            title,
             5,
-            net.net_depth + 1,
-            data_trace_hist,
-            va_topdown_hist,
-            va_cancelation_hist,
+            net.depth + 1,
+            data_hist,
+            den_in_hist,
             target_hist,
             s_hist,
+            run_number,
         )
+
+        # learning self-prediction
         print("---learning self-prediction---")
-        data = create_dataset(1000, BATCH_SIZE, net.net_topology[0], 0, 1, device)
-        va, wpf_hist, wpb_hist, wpi_hist, wip_hist, n = self_pred_training(
-            net, data, T, DT, TAU_NEU, device
+        va, weights_hist, state_hist, n = self_pred_training(net, train_data, config)
+        net.save_weights(
+            r"weights_selfpred_{}eps.pt".format(n),
+            dir=r"runs/" + date_string + "/" + r"run_{}".format(run_number),
         )
-        plot_synapse_distance(
-            r"learning_selfpred({}eps)synapsedistance".format(n * BATCH_SIZE),
-            net.net_depth + 1,
-            wpf_hist,
-            wpb_hist,
-            wpi_hist,
-            wip_hist,
-        )
-        plot_synapse_trace(
-            r"learning_selfpred({}eps)_synapsetrace".format(n * BATCH_SIZE),
-            net.net_depth + 1,
-            wpf_hist,
-            wpb_hist,
-            wpi_hist,
-            wip_hist,
-        )
-        plot_apical_distance(
-            r"learning_selfpred({}eps)_apicaldistance".format(n * BATCH_SIZE),
-            net.net_depth + 1,
-            va[0],
-            va[1],
-        )
-
+        title = r"learning_selfpred({}eps)".format(n * config.batch_size)
+        plot_synapse_distance(title, weights_hist, run_number)
+        plot_synapse_trace(title, net.depth + 1, weights_hist, run_number)
+        plot_apical_distance(title, net.depth + 1, va, run_number)
+        plot_pyr_int_distance(title, state_hist[0][-1], state_hist[1][0], run_number)
+        # after learning self-prediction
         print("---after learning self-prediction---")
-        data_trace_hist, va_topdown_hist, va_cancelation_hist, target_hist, s_hist = (
-            evalrun(
-                net,
-                eval_data,
-                targets,
-                BATCH_SIZE,
-                T,
-                DT,
-                TAU_NEU,
-                device,
-            )
+        (data_hist, den_in_hist, target_hist, s_hist) = evalrun(
+            net, fig_data, fig_target, config
         )
+        title = r"post-learning_selfpred({}eps)".format(n * config.batch_size)
         plot_apical_trace(
-            "post-learning_selfpred_eval_apicaltrace",
+            title,
             5,
-            net.net_depth + 1,
-            data_trace_hist,
-            va_topdown_hist,
-            va_cancelation_hist,
+            net.depth + 1,
+            data_hist,
+            den_in_hist,
             target_hist,
             s_hist,
+            run_number,
         )
+        # save the configuration in a file under today's date and run_number
+        os.makedirs(
+            r"runs/" + date_string + "/" + r"run_{}".format(run_number), exist_ok=True
+        )
+        with open(
+            r"runs/"
+            + date_string
+            + "/"
+            + r"run_{}".format(run_number)
+            + "/"
+            + "config.txt",
+            "w",
+        ) as f:
+            f.write(str(config))
         # plt.show()
 
 
-def fig_1(net, device, train_from_scratch=False):
+def fig_1(net, config, run_number):
     net.lr_pf = [0.0011875, 0.0005]
+    net.tau_weights = 30
+    net.lr_ip = [0.0011875]
+    net.lr_pi = [0.0005]
     with torch.no_grad():
-        if train_from_scratch:
-            data = create_dataset(10000, BATCH_SIZE, net.net_topology[0], 0, 1, device)
-            self_pred_training(net, data, T, DT, TAU_NEU, device)
-        else:
-            net.load_weights(
-                r"weights/2024-12-05/weights_10000_{}.pt".format(net.net_topology)
-            )
-            net.to(device)
-            net.train()
-
-        global teacherNet
-        # Build the teacher net
-        teacherNet = teacherNet(SIZE_TAB_TEACHER, K_TAB)
-
+        net.load_weights("weights/2025-01-16/weights_10000_[30, 20, 10]_val_dist05.pt")
+        net.to(config.device)
+        net.train()
+        n = 1500
         # pre-training evaluation
-        data = create_dataset(1, BATCH_SIZE, net.net_topology[0], 0, 1, device)
-        target = teacherNet.forward(data)
-        data_trace_hist, va_topdown_hist, va_cancelation_hist, target_hist, s_hist = (
-            evalrun(
-                net,
-                [data, data],
-                [None, target],
-                BATCH_SIZE,
-                T,
-                DT,
-                TAU_NEU,
-                device,
-            )
+        data = 2 * torch.rand(1, 30, device=config.device) - 1
+        rand_target = 2 * torch.rand(1, 10, device=config.device) - 1
+        print("data: ", data)
+        print("rand_target: ", rand_target)
+
+        (data_hist, den_in_hist, target_hist, s_hist) = evalrun(
+            net, [data, data], [None, rand_target], config
         )
+        title = "pre_singtar_{}steps".format(n)
         plot_apical_trace(
-            "pre-training_target_eval_apicaltrace",
-            5,
-            net.net_depth + 1,
-            data_trace_hist,
-            va_topdown_hist,
-            va_cancelation_hist,
+            title,
+            10,
+            net.depth + 1,
+            data_hist,
+            den_in_hist,
             target_hist,
             s_hist,
+            run_number,
         )
+
         # target training
-        n = 15
-        target_training(net, data, target, T, DT, TAU_NEU)
-        # post-training evaluation
-        data_trace_hist, va_topdown_hist, va_cancelation_hist, target_hist, s_hist = (
-            evalrun(
-                net,
-                [data, data],
-                [None, target],
-                BATCH_SIZE,
-                T,
-                DT,
-                TAU_NEU,
-                device,
-            )
+        apical_dist_hist, pyr_int_dist_hist, val_error_hist = target_training(
+            n,
+            net,
+            data,
+            rand_target,
+            config.t,
+            config.dt,
+            config.tau_neu,
+            config.device,
         )
+        title = "singtar_{}steps".format(n)
+        plot_val_hist(
+            title,
+            net.depth,
+            apical_dist_hist,
+            pyr_int_dist_hist,
+            val_error_hist,
+            run_number,
+        )
+
+        # post-training evaluation
+        (data_hist, den_in_hist, target_hist, s_hist) = evalrun(
+            net, [data, data], [None, rand_target], config
+        )
+        title = "post_singtar_{}steps".format(n)
         plot_apical_trace(
-            r"post-training_target_eval({}eps)_apicaltrace".format(n),
-            5,
-            net.net_depth + 1,
-            data_trace_hist,
-            va_topdown_hist,
-            va_cancelation_hist,
+            title,
+            10,
+            net.depth + 1,
+            data_hist,
+            den_in_hist,
             target_hist,
             s_hist,
+            run_number,
         )
         # plt.show()
 
 
-def fig_2(net, device, train_from_scratch=False):
-    net.to(device)
+def fig_2(net, config, run_number):
+    net.to(config.device)
     net.train()
-
     with torch.no_grad():
-        # train for self-predicting state
-        if train_from_scratch:
-            net.load_weights(
-                r"weights/2024-12-04/weights_10000_{}.pt".format(net.net_topology)
-            )
-        else:
-            self_pred_training(net, 10000, BATCH_SIZE, T, DT, TAU_NEU, device)
-        net.to(device)
         # train non-linear regression task
         global teacherNet
-        teacherNet = teacherNet(SIZE_TAB_TEACHER, K_TAB)
-        teacherNet.to(device)
+        teacherNet = teacherNet(config.size_tab_teacher, config.k_tab)
+        teacherNet.to(config.device)
         try:
-            for n in range(1000):
-                data = torch.rand(BATCH_SIZE, net.net_topology[0], device=device)
-                target = teacherNet.forward(data)
-                target_training(15, net, data, target, T, DT, TAU_NEU)
+            data = create_dataset(
+                10000, config.batch_size, net.topology[0], 0, 1, config.device
+            )
+            target_training(
+                15,
+                net,
+                data,
+                teacherNet,
+                config.t,
+                config.dt,
+                config.tau_neu,
+                config.device,
+            )
         except KeyboardInterrupt:
             pass
 
         net.save_weights(
             r"weights/2024-12-05/weights_target_{}_{}.pt".format(
-                n + 1, net.net_topology
+                100000 + 1, net.topology
             )
         )
 
@@ -247,59 +184,32 @@ def fig_2(net, device, train_from_scratch=False):
 
 
 if __name__ == "__main__":
-    # Define the device
-    print(torch.cuda.is_available())
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
-    print(device)
-    if torch.cuda.is_available():
-        torch.cuda.synchronize()
-        start_time = time.time()
-
-    # Define the networks
-    net_1 = dendriticNet(
-        DT,
-        BATCH_SIZE,
-        size_tab=[30, 20, 10],
-        lr_pf=[0, 0],
-        lr_ip=[0.0011875],
-        lr_pi=[0.0005],
-        lr_pb=[0],
-        ga=0.8,
-        gb=1,
-        gd=1,
-        glk=0.1,
-        gsom=0.8,
-        noise=0.1,
-        tau_weights=30,
-        rho=logexp,
-        initw=1,
-        device=device,
+    # set seed
+    # torch.manual_seed(30)
+    config = Config.fig_s1()
+    net = dendriticNet(config)
+    train_data = create_dataset(
+        config.n_samples, config.batch_size, config.size_tab[0], 0, 1
     )
-    net_2 = dendriticNet(
-        DT,
-        BATCH_SIZE,
-        size_tab=[30, 50, 10],
-        lr_pf=[0.0011875, 0.0005],
-        lr_ip=[0.0011875],
-        lr_pi=[0.0059375],
-        lr_pb=[0],
-        ga=0.8,
-        gb=1,
-        gd=1,
-        glk=0.1,
-        gsom=0.8,
-        noise=0.3,
-        tau_weights=30,
-        rho=softrelu,
-        initw=0.1,
-    )
+    fig_data = [
+        torch.FloatTensor(1, config.size_tab[0]).uniform_(
+            config.sample_range[0], config.sample_range[1]
+        )
+        for _ in range(3)
+    ]
+    fig_target = [None for _ in range(3)]
 
-    fig_s1(net_1, device)
-    # fig_1(net_1, device)
+    # create training and validation data for fig_2
+    # config = Config.fig_2()
+    # target_net = teacherNet(config.size_tab, config.k_tab)
+    # target_net.to(config.device)
+    # train_target = target_net(train_data)
+
+    # check if the run directory exists and if there is already a run_number for today
+    date_string = datetime.datetime.now().strftime("%Y-%m-%d")
+    run_number = 1
+    while os.path.exists(r"runs/" + date_string + "/" + r"run_{}".format(run_number)):
+        run_number += 1
+    fig_s1(net, config, fig_data, fig_target, train_data, run_number)
+    # fig_1(net, config)
     # fig_2(net_2, device)
-
-    if torch.cuda.is_available():
-        torch.cuda.synchronize()
-        end_time = time.time()
-        print(f"Time taken: {end_time - start_time} seconds")

@@ -1,172 +1,178 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import os, sys
-import pickle
 import torch
 import datetime
 
 
-def save_graphic(filename, fig):
+def save_graphic(filename, fig, run_number):
     now = datetime.datetime.now()
     date_string = now.strftime("%Y-%m-%d")
-    hour = now.strftime("%H")
-    # make sure the directory graphics/date_string exists
-    os.makedirs(r"graphics/" + date_string, exist_ok=True)
+    # make sure the directory runs/date_string exists
+    os.makedirs(
+        r"runs/" + date_string + "/" + r"run_{}".format(run_number), exist_ok=True
+    )
     fig.savefig(
-        r"graphics/" + date_string + "/" + filename + "_" + hour + ".png",
+        r"runs/"
+        + date_string
+        + "/"
+        + r"run_{}".format(run_number)
+        + "/"
+        + filename
+        + ".png",
         pad_inches=0,
     )
 
 
-def plot_synapse_distance(fig_title, net_depth, wpf_hist, wpb_hist, wpi_hist, wip_hist):
-    fig = plt.figure(figsize=(12, net_depth))
+def plot_pyr_int_distance(fig_title, u_p_hist, u_i_hist, run_number):
+    fig, ax = plt.subplots(figsize=(10, 5))
     plt.rcParams.update({"font.size": 12})
     # set figure title
+    fig_title += "_pyr_int_distance"
     plt.suptitle(fig_title)
-    for i in range(1, net_depth - 1):
-        sqrd_frob_norm = (
-            torch.norm(wpf_hist[i] - wip_hist[i - 1], p="fro", dim=(0, 1)) ** 2
-        )
-        # plot squared frobenious matrix norm between wpi and wpf and wip and wpb
-        plt.subplot(net_depth - 2, 2, i)
-        plt.plot(
-            0.1 * np.linspace(0, wpf_hist[i].size(2) - 1, wpf_hist[i].size(2)),
-            sqrd_frob_norm.cpu().numpy(),
-            color="grey",
-            linewidth=3,
-            alpha=0.8,
-        )
-        plt.xlabel(r"$||W^{\rm pp, forward} - W^{\rm ip}||^2$")
-        sqrd_frob_norm = (
-            torch.norm(wpb_hist[i - 1] - wpi_hist[i - 1], p="fro", dim=(0, 1)) ** 2
-        )
-        plt.grid()
-        plt.subplot(net_depth - 2, 2, i + 1)
-        plt.plot(
-            0.1 * np.linspace(0, wpf_hist[i].size(2) - 1, wpf_hist[i].size(2)),
-            sqrd_frob_norm.cpu().numpy(),
-            color="grey",
-            linewidth=3,
-            alpha=0.8,
-        )
-        plt.xlabel(r"$||W^{\rm pp, backward} - W^{\rm pi}||^2$")
-        plt.grid()
-
-    save_graphic(fig_title, fig)
+    plt.plot(
+        0.1 * np.linspace(0, u_p_hist.size(1) - 1, u_p_hist.size(1)),
+        ((u_p_hist - u_i_hist) ** 2).sum(0),
+        color="blue",
+        linewidth=3,
+        alpha=0.8,
+    )
+    plt.xlabel("Time (ms)")
+    plt.ylabel("Distance")
+    plt.grid()
+    plt.tight_layout()
+    save_graphic(fig_title, fig, run_number)
 
 
-def plot_synapse_trace(fig_title, net_depth, wpf_hist, wpb_hist, wpi_hist, wip_hist):
-    weight_hists = [wpf_hist, wpb_hist, wpi_hist, wip_hist]
-    weight_colors = ["red", "blue", "orange", "purple"]
+def plot_synapse_distance(fig_title, weight_hists, run_number):
+    wpf_hist, wpb_hist, wpi_hist, wip_hist = weight_hists
+    fig, axes = plt.subplots(1, 2, figsize=(12, 6))
+    plt.rcParams.update({"font.size": 12})
+    # set figure title
+    fig_title += "_synapse_distance"
+    fig.suptitle(fig_title)
+    time_step = 0.1 * np.linspace(0, wpf_hist[0].size(2) - 1, wpf_hist[0].size(2))
+    sqrd_frob_norm = torch.norm(wpf_hist[1] - wip_hist[0], p="fro", dim=(0, 1)) ** 2
+    # plot squared frobenious matrix norm between wpi and wpf and wip and wpb
+    axes[0].plot(
+        time_step,
+        sqrd_frob_norm.numpy(),
+        color="grey",
+        linewidth=3,
+        alpha=0.8,
+    )
+    axes[0].set_xlabel(r"$||W^{\rm pp, forward} - W^{\rm ip}||^2$")
+    axes[0].grid()
+    sqrd_frob_norm = torch.norm(wpb_hist[0] - wpi_hist[0], p="fro", dim=(0, 1)) ** 2
+    axes[1].plot(
+        time_step,
+        sqrd_frob_norm.numpy(),
+        color="grey",
+        linewidth=3,
+        alpha=0.8,
+    )
+    axes[1].set_xlabel(r"$||W^{\rm pp, backward} - W^{\rm pi}||^2$")
+    axes[1].grid()
+
+    plt.tight_layout()
+    save_graphic(fig_title, fig, run_number)
+
+
+def plot_synapse_trace(fig_title, net_depth, weight_hists, run_number):
+    wpf_hist = weight_hists[0]
+    weight_colors = ["red", "blue", "green", "purple"]
     weight_lables = [
         r"$W^{\rm pp, forward}$",
         r"$W^{\rm pp, backward}$",
         r"$W^{\rm pi}$",
         r"$W^{\rm ip}$",
     ]
-
-    fig = plt.figure(figsize=(12, net_depth))
-    plt.rcParams.update({"font.size": 12})
+    fig, axes = plt.subplots(net_depth - 1, 4, figsize=(12, 8))
     # set figure title
-    plt.suptitle(fig_title)
-    # plot input weights
-    plt.subplot(net_depth - 1, 4, 1)
-    # plot mean across all synapses
+    fig_title += "_synapse_trace"
+    fig.suptitle(fig_title)
+    time_steps = 0.1 * np.linspace(0, wpf_hist[0].size(2) - 1, wpf_hist[0].size(2))
 
-    plt.plot(
-        0.1 * np.linspace(0, wpf_hist[0].size(2) - 1, wpf_hist[0].size(2)),
-        wpf_hist[0].mean(0).mean(0).cpu().numpy(),
-        color="red",
-        linewidth=3,
-        alpha=0.8,
-    )
-
-    # plot ten random synapses
-    for j in range(10):
-        # sample random synapse
-        ind_0, ind_1 = np.random.randint(wpf_hist[0].size(0)), np.random.randint(
-            wpf_hist[0].size(1)
-        )
-        plt.plot(
-            0.1 * np.linspace(0, wpf_hist[0].size(2) - 1, wpf_hist[0].size(2)),
-            wpf_hist[0][ind_0, ind_1, :].cpu().numpy(),
+    # forward synapses
+    for layer in range(net_depth - 1):
+        ax = axes[layer, 0]
+        # plot mean across all input synapses
+        ax.plot(
+            time_steps,
+            wpf_hist[layer].mean(0).mean(0).numpy(),
             color="red",
-            linewidth=1.5,
-            alpha=0.2,
+            linewidth=3,
         )
+        # plot ten random synapses
+        for j in range(5):
+            # sample random synapse
+            ind_0, ind_1 = np.random.randint(
+                wpf_hist[layer].size(0)
+            ), np.random.randint(wpf_hist[layer].size(1))
+            ax.plot(
+                time_steps,
+                wpf_hist[layer][ind_0, ind_1, :].numpy(),
+                color="red",
+                linewidth=1.5,
+                alpha=0.2,
+            )
+        ax.set_title(weight_lables[0])
+        ax.set_xlabel("Time (ms)")
+        ax.set_ylabel(r"Layer {}".format(layer))
+        ax.grid()
 
-    plt.xlabel("Time (ms)")
-    plt.ylabel("Layer 1")
-    plt.grid()
-
-    # Loop over layers
-    for i in range(1, net_depth - 1):
-        for w in range(len(weight_hists)):
-            plt.subplot(net_depth - 1, 4, (w + 1) + 4 * i)
-            if w == 0:
-                plt.ylabel("Layer {}".format(1 + i))
-                idx_sub = 0
-            else:
-                idx_sub = 1
-
+    # all other synapses
+    for layer in range(net_depth - 2):
+        for w in range(1, 4):
+            ax = axes[layer + 1, w]
             # plot mean across all synapses
-            plt.plot(
-                0.1
-                * np.linspace(
-                    0,
-                    weight_hists[w][i - idx_sub].size(2) - 1,
-                    weight_hists[w][i - idx_sub].size(2),
-                ),
-                weight_hists[w][i - idx_sub].mean(0).mean(0).cpu().numpy(),
+            ax.plot(
+                time_steps,
+                weight_hists[w][layer].mean(0).mean(0).numpy(),
                 color=weight_colors[w],
                 linewidth=3,
                 alpha=0.8,
             )
 
             # plot ten random synapses
-            for j in range(10):
+            for j in range(5):
                 # sample random synapse
                 ind_0, ind_1 = np.random.randint(
-                    weight_hists[w][i - idx_sub].size(0)
-                ), np.random.randint(weight_hists[w][i - idx_sub].size(1))
-                plt.plot(
-                    0.1
-                    * np.linspace(
-                        0,
-                        weight_hists[w][i - idx_sub].size(2) - 1,
-                        weight_hists[w][i - idx_sub].size(2),
-                    ),
-                    weight_hists[w][i - idx_sub][ind_0, ind_1, :].cpu().numpy(),
+                    weight_hists[w][layer].size(0)
+                ), np.random.randint(weight_hists[w][layer].size(1))
+                ax.plot(
+                    time_steps,
+                    weight_hists[w][layer][ind_0, ind_1, :].numpy(),
                     color=weight_colors[w],
                     linewidth=1.5,
                     alpha=0.2,
                 )
+            ax.set_xlabel("Time (ms)")
+            ax.set_title(weight_lables[w])
+            ax.grid()
+    plt.tight_layout()
+    save_graphic(fig_title, fig, run_number)
 
-            plt.xlabel(weight_lables[w])
-            plt.grid()
 
-    fig.tight_layout()
-    save_graphic(fig_title, fig)
-
-
-def plot_neuron_trace(fig_title, net_depth, data_trace_hist, s_hist):
+def plot_neuron_trace(fig_title, net_depth, data_trace_hist, s_hist, run_number):
     fig = plt.figure(figsize=(5, 2 * net_depth))
     plt.rcParams.update({"font.size": 12})
     # set figure title
+    fig_title += "_neuron_trace"
     plt.suptitle(fig_title)
     # plot sensory input
     plt.subplot(net_depth, 1, 1)
     plt.plot(
-        0.1 * np.linspace(0, data_trace_hist.size(2) - 1, data_trace_hist.size(2)),
-        data_trace_hist.mean(1).mean(0).cpu().numpy(),
+        0.1 * np.linspace(0, data_trace_hist.size(1) - 1, data_trace_hist.size(1)),
+        data_trace_hist.mean(1).numpy(),
         color="green",
         linewidth=3,
         alpha=0.8,
     )
     for j in range(10):
         plt.plot(
-            0.1 * np.linspace(0, data_trace_hist.size(2) - 1, data_trace_hist.size(2)),
-            data_trace_hist[0, j, :].cpu().numpy(),
+            0.1 * np.linspace(0, data_trace_hist.size(1) - 1, data_trace_hist.size(1)),
+            data_trace_hist[j, :].numpy(),
             color="green",
             linewidth=1.5,
             alpha=0.2,
@@ -180,8 +186,8 @@ def plot_neuron_trace(fig_title, net_depth, data_trace_hist, s_hist):
     for i in range(1, net_depth):
         plt.subplot(net_depth, 1, 1 + i)
         plt.plot(
-            0.1 * np.linspace(0, s_hist[i - 1].size(2) - 1, s_hist[i - 1].size(2)),
-            s_hist[i - 1].mean(1).mean(0).cpu().numpy(),
+            0.1 * np.linspace(0, s_hist[i - 1].size(1) - 1, s_hist[i - 1].size(1)),
+            s_hist[i - 1].mean(1).numpy(),
             color="blue",
             linewidth=3,
             alpha=0.8,
@@ -189,8 +195,8 @@ def plot_neuron_trace(fig_title, net_depth, data_trace_hist, s_hist):
 
         for j in range(10):
             plt.plot(
-                0.1 * np.linspace(0, s_hist[i - 1].size(2) - 1, s_hist[i - 1].size(2)),
-                s_hist[i - 1][0, j, :].cpu().numpy(),
+                0.1 * np.linspace(0, s_hist[i - 1].size(1) - 1, s_hist[i - 1].size(1)),
+                s_hist[i - 1][j, :].numpy(),
                 color="blue",
                 linewidth=1.5,
                 alpha=0.2,
@@ -200,8 +206,7 @@ def plot_neuron_trace(fig_title, net_depth, data_trace_hist, s_hist):
         plt.ylabel("Layer {}".format(i))
         plt.grid()
 
-    fig.tight_layout()
-    save_graphic(fig_title, fig)
+    save_graphic(fig_title, fig, run_number)
 
 
 def plot_apical_trace(
@@ -209,151 +214,101 @@ def plot_apical_trace(
     n_neu,
     net_depth,
     data_trace_hist,
-    va_topdown_hist,
-    va_cancelation_hist,
+    den_input_hist,
     target_hist,
     s_hist,
+    run_number,
 ):
-    fig = plt.figure(figsize=(15, 2 * (net_depth - 1) + 2))
-    plot_row_sub = 0
-
-    plt.rcParams.update({"font.size": 12})
-    # set figure title
-    plt.suptitle(fig_title)
-    # plot sensory input
+    fig, axes = plt.subplots(net_depth, n_neu, figsize=(20, 10), squeeze=False)
+    fig_title += "_apical_trace"
+    plt.suptitle(fig_title, fontsize=16)
+    time_steps = 0.1 * np.linspace(
+        0, data_trace_hist.shape[0] - 2, data_trace_hist.shape[0] - 1
+    )
+    va_topdown_hist, va_cancelation_hist, vb_input_hist = den_input_hist
     for j in range(n_neu):
-        plt.subplot(net_depth - plot_row_sub, n_neu, j + 1)
-        # pick a random input-"neuron" from the visible layer
-        ind_neu = j
-        plt.plot(
-            0.1 * np.linspace(0, data_trace_hist.size(2) - 1, data_trace_hist.size(2)),
-            data_trace_hist[0, ind_neu, :].cpu().numpy(),
-            color="green",
-            linewidth=3,
-            alpha=0.5,
+        # Sensory input
+        ax = axes[0, j]
+        ax.plot(
+            time_steps, data_trace_hist[:-1, j], color="green", linewidth=2, alpha=0.8
         )
-        plt.xlabel("Time (ms)")
-        if j == 0:
-            plt.title("Sensory input")
-        plt.grid()
-
-    # Loop over layers
-    for i in range(1, net_depth - 1):
-        # Loop over randomly picked neurons of each layer
-        for j in range(n_neu):
-            plt.subplot(net_depth - plot_row_sub, n_neu, n_neu * i + j + 1)
-            ind_neu = j
-            plt.plot(
-                0.1
-                * np.linspace(
-                    0,
-                    va_cancelation_hist[i - 1].size(2) - 1,
-                    va_cancelation_hist[i - 1].size(2),
-                ),
-                va_cancelation_hist[i - 1][0, ind_neu, :].cpu().numpy(),
+        ax.set_title(f"Neuron {j+1}", fontsize=12)
+        ax.set_xlabel("Time (ms)", fontsize=10)
+        ax.set_ylabel("Sensory input", fontsize=10)
+        ax.grid(True, linestyle="--", alpha=0.5)
+        for layer in range(1, net_depth - 1):
+            ax = axes[layer, j]
+            ax.plot(
+                time_steps,
+                va_topdown_hist[layer - 1][j, :],
                 color="red",
-                linewidth=3,
-                alpha=0.5,
-                label="Lateral cancelation",
-            )
-            plt.plot(
-                0.1
-                * np.linspace(
-                    0,
-                    va_topdown_hist[i - 1].size(2) - 1,
-                    va_topdown_hist[i - 1].size(2),
-                ),
-                va_topdown_hist[i - 1][0, ind_neu, :].cpu().numpy(),
-                color="blue",
-                linewidth=3,
-                alpha=0.5,
+                linewidth=2,
                 label="Topdown feedback",
             )
-            plt.plot(
-                0.1
-                * np.linspace(
-                    0,
-                    va_cancelation_hist[i - 1].size(2) - 1,
-                    va_cancelation_hist[i - 1].size(2),
-                ),
+            ax.plot(
+                time_steps,
+                va_cancelation_hist[layer - 1][j, :],
+                color="blue",
+                linewidth=2,
+                label="Lateral cancelation",
+            )
+            ax.plot(
+                time_steps,
                 (
-                    va_cancelation_hist[i - 1][0, ind_neu, :]
-                    + va_topdown_hist[i - 1][0, ind_neu, :]
-                )
-                .cpu()
-                .numpy(),
+                    va_topdown_hist[layer - 1][j, :]
+                    + va_cancelation_hist[layer - 1][j, :]
+                ),
                 color="grey",
-                linewidth=3,
-                alpha=0.5,
+                linewidth=2,
                 label="Apical potential",
             )
-            plt.xlabel("Time (ms)")
-            if j == 0:
-                plt.ylabel("Layer {}".format(i))
-            plt.title("Neuron {}".format(1 + j))
-            plt.grid()
+            ax.set_ylabel(f"Layer {layer}", fontsize=10)
+            ax.grid(True, linestyle="--", alpha=0.5)
+            ax.legend(fontsize=8)
 
-    # output layer
-    ind_subplot = n_neu * i + j + 2
-    for j in range(n_neu):
-        plt.subplot(net_depth, n_neu, ind_subplot + j)
-        plt.plot(
-            0.1 * np.linspace(0, s_hist[-1].size(2) - 1, s_hist[-1].size(2)),
-            s_hist[-1][0, j, :].cpu().numpy(),
-            color="blue",
-            linewidth=3,
-            alpha=0.5,
+        # Output layer
+        ax = axes[net_depth - 1, j]
+        ax.plot(
+            time_steps, s_hist[-1][j, :], color="orange", linewidth=2, label="Output"
         )
-        target_j = []
-        for t in target_hist:
-            target_j.append(t[0, j, :])
-        plt.plot(
-            0.1 * np.linspace(0, len(target_j) - 1, len(target_j)),
-            target_j,
+        ax.plot(
+            time_steps,
+            target_hist[:, j],
             color="blue",
-            # dotted line
             linestyle="--",
-            linewidth=3,
-            alpha=0.5,
+            linewidth=2,
+            label="Target",
         )
-        plt.xlabel("Time (ms)")
-        if j == 0:
-            plt.ylabel("Output layer")
-        plt.title("Neuron {}".format(1 + j))
-        plt.grid()
+        ax.set_xlabel("Time (ms)", fontsize=10)
+        ax.set_ylabel("Output layer", fontsize=10)
+        ax.grid(True, linestyle="--", alpha=0.5)
+        ax.legend(fontsize=8)
 
-    fig.tight_layout()
-    save_graphic(fig_title, fig)
+    plt.tight_layout(rect=(0, 0.03, 1, 0.95))
+    save_graphic(fig_title, fig, run_number)
 
 
-def plot_apical_distance(fig_title, net_depth, va_topdown_hist, va_cancelation_hist):
-    fig = plt.figure(figsize=(15, 2 * (net_depth - 1)))
+def plot_apical_distance(fig_title, net_depth, va, run_number):
+    va_topdown_hist, va_cancelation_hist = va
+    fig, ax = plt.subplots(figsize=(10, 5))
     plt.rcParams.update({"font.size": 12})
+    print(va_cancelation_hist[0].shape)
+    print(va_topdown_hist[0].size(1))
     # set figure title
+    fig_title += "_apical_distance"
     plt.suptitle(fig_title)
-    for i in range(1, net_depth - 1):
-        # plot apical potential through time
-        plt.subplot(net_depth - 1, 1, i)
-        plt.plot(
-            0.1
-            * np.linspace(
-                0,
-                va_cancelation_hist[i - 1].size(2) - 1,
-                va_cancelation_hist[i - 1].size(2),
-            ),
-            ((va_cancelation_hist[i - 1] + va_topdown_hist[i - 1]) ** 2)
-            .cpu()
-            .numpy()
-            .sum(1)
-            .mean(0),
-            color="grey",
-            linewidth=3,
-            alpha=0.5,
-            label="Apical pot. through time",
-        )
-        plt.ylabel(r"layer {}".format(i))
-        plt.xlabel("Time (ms)")
-        plt.title(" Apical potential")
-        plt.grid()
-    fig.tight_layout()
-    save_graphic(fig_title, fig)
+    plt.plot(
+        0.1
+        * np.linspace(
+            0, va_cancelation_hist[0].size(1) - 1, va_cancelation_hist[0].size(1)
+        ),
+        ((va_cancelation_hist[0] - va_topdown_hist[0]) ** 2).sum(0),
+        color="blue",
+        linewidth=3,
+        alpha=0.8,
+    )
+    plt.xlabel("Time (ms)")
+    plt.ylabel("Distance")
+    plt.grid()
+    plt.tight_layout()
+    save_graphic(fig_title, fig, run_number)
