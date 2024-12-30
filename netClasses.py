@@ -13,7 +13,6 @@ import datetime
 class dendriticNet(nn.Module):
     def __init__(
         self,
-        T,
         dt,
         batch_size,
         size_tab,
@@ -30,12 +29,10 @@ class dendriticNet(nn.Module):
         tau_weights,
         rho,
         initw,
-        init_selfpred=False,
         device=torch.device("cpu"),
     ):
         super(dendriticNet, self).__init__()
 
-        self.T = T
         self.dt = dt
         self.net_topology = size_tab
         self.net_depth = len(size_tab) - 1
@@ -52,16 +49,9 @@ class dendriticNet(nn.Module):
         self.noise = noise
         self.tau_weights = tau_weights
         self.rho = rho
-        self.initw = initw
         self.device = device
-        self.s = [
-            torch.zeros(self.batch_size, size, device=device)
-            for size in self.net_topology[1:]
-        ]
-        self.i = [
-            torch.zeros(self.batch_size, size, device=device)
-            for size in self.net_topology[2:]
-        ]
+        self.s = [torch.zeros(batch_size, size, device=device) for size in size_tab[1:]]
+        self.i = [torch.zeros(batch_size, size, device=device) for size in size_tab[2:]]
 
         # Initialize weights
         self.wpf = nn.ModuleList([])
@@ -70,27 +60,17 @@ class dendriticNet(nn.Module):
         self.wip = nn.ModuleList([])
 
         # Build input weights
-        self.wpf.append(
-            nn.Linear(self.net_topology[0], self.net_topology[1], bias=False)
-        )
+        self.wpf.append(nn.Linear(size_tab[0], size_tab[1], bias=False))
 
         # Build weights for hidden layers
         for i in range(1, self.net_depth):
-            self.wpf.append(
-                nn.Linear(self.net_topology[i], self.net_topology[i + 1], bias=False)
-            )
+            self.wpf.append(nn.Linear(size_tab[i], size_tab[i + 1], bias=False))
             torch.nn.init.uniform_(self.wpf[-1].weight, a=-initw, b=initw)
-            self.wpb.append(
-                nn.Linear(self.net_topology[i + 1], self.net_topology[i], bias=False)
-            )
+            self.wpb.append(nn.Linear(size_tab[i + 1], size_tab[i], bias=False))
             torch.nn.init.uniform_(self.wpb[-1].weight, a=-initw, b=initw)
-            self.wip.append(
-                nn.Linear(self.net_topology[i], self.net_topology[i + 1], bias=False)
-            )
+            self.wip.append(nn.Linear(size_tab[i], size_tab[i + 1], bias=False))
             torch.nn.init.uniform_(self.wip[-1].weight, a=-initw, b=initw)
-            self.wpi.append(
-                nn.Linear(self.net_topology[i + 1], self.net_topology[i], bias=False)
-            )
+            self.wpi.append(nn.Linear(size_tab[i + 1], size_tab[i], bias=False))
             torch.nn.init.uniform_(self.wpi[-1].weight, a=-initw, b=initw)
 
         self.dWpf = [torch.zeros_like(w.weight, device=device) for w in self.wpf]
@@ -98,22 +78,30 @@ class dendriticNet(nn.Module):
         self.dWpb = [torch.zeros_like(w.weight, device=device) for w in self.wpb]
         self.dWip = [torch.zeros_like(w.weight, device=device) for w in self.wip]
 
-        # generate self predicting state by hardcoding it (instead of training it)
-        if init_selfpred:
-            print("self predicting")
-            for i in range(len(self.wpi)):
-                print("layer {}".format(i))
-                self.wip[i].weight.data = (
-                    (self.gb + self.glk)
-                    / (self.gb + self.glk + self.ga)
-                    * self.wpf[i + 1].weight.data.clone()
-                )
-                self.wpb[i].weight.data = -self.wpi[i].weight.data.clone()
+        self.dsdt = [torch.zeros_like(s, device=device) for s in self.s]
+        self.didt = [torch.zeros_like(i, device=device) for i in self.i]
+        self.i_nudge = [torch.zeros_like(i, device=device) for i in self.i]
+
+    def to(self, device):
+        super().to(device)
+        self.device = device
+        self.s = [s.to(device) for s in self.s]
+        self.i = [i.to(device) for i in self.i]
+        self.dsdt = [dsdt.to(device) for dsdt in self.dsdt]
+        self.didt = [didt.to(device) for didt in self.didt]
+        self.i_nudge = [i_nudge.to(device) for i_nudge in self.i_nudge]
+        self.dWpf = [dWpf.to(device) for dWpf in self.dWpf]
+        self.dWpi = [dWpi.to(device) for dWpi in self.dWpi]
+        self.dWpb = [dWpb.to(device) for dWpb in self.dWpb]
+        self.dWip = [dWip.to(device) for dWip in self.dWip]
+        self.wpf = [wpf.to(device) for wpf in self.wpf]
+        self.wpb = [wpb.to(device) for wpb in self.wpb]
+        self.wpi = [wpi.to(device) for wpi in self.wpi]
+        self.wip = [wip.to(device) for wip in self.wip]
+        return self
 
     def stepper(self, data, target=None):
         # prepare lists for derivatives and apical voltages
-        dsdt = [torch.zeros_like(s, device=self.device) for s in self.s]
-        didt = [torch.zeros_like(i, device=self.device) for i in self.i]
         va_topdown = []
         va_cancelation = []
 
@@ -132,39 +120,40 @@ class dendriticNet(nn.Module):
             va_cancelation.append(self.wpi[k](rho_i[k]))
 
             # compute i_nudge which is the average of the somatic activation of the next layer and should have the same shape as the interneuron activation
-            i_nudge = self.s[k + 1].mean(dim=0).unsqueeze(0).repeat(self.batch_size, 1)
-
+            self.i_nudge[k] = (
+                self.s[k + 1].mean(dim=0).unsqueeze(0).repeat(self.batch_size, 1)
+            )
             # Compute total derivative of somatic voltage (Eq. 1)
-            dsdt[k] = (
+            self.dsdt[k] = (
                 -self.glk * self.s[k]
                 + self.gb * (vb - self.s[k])
                 + self.ga * (va - self.s[k])
                 + self.noise * torch.randn_like(self.s[k], device=self.device)
             )
             # Compute total derivative of the interneuron (Eq. 2)
-            didt[k] = (
+            self.didt[k] = (
                 -self.glk * self.i[k]
                 + self.gd * (vi - self.i[k])
-                + self.gsom * (i_nudge - self.i[k])
+                + self.gsom * (self.i_nudge[k] - self.i[k])
                 + self.noise * torch.randn_like(self.i[k], device=self.device)
             )
 
         # Compute derivative of the output layer
         vb = self.wpf[-1](rho_s[-2])
-        dsdt[-1] = (
+        self.dsdt[-1] = (
             -self.glk * self.s[-1]
             + self.gb * (vb - self.s[-1])
             + self.noise * torch.randn_like(self.s[-1], device=self.device)
         )
         # Nudge the derivative of the output neuron in the direction of the target
         if target is not None:
-            dsdt[-1] = dsdt[-1] + self.gsom * (target - self.s[-1])
+            self.dsdt[-1] = self.dsdt[-1] + self.gsom * (target - self.s[-1])
         # Update the values of the neurons in the hidden layers by adding the time step times the derivative
         for k in range(self.net_depth - 1):
-            self.s[k] += self.dt * dsdt[k]
-            self.i[k] += self.dt * didt[k]
+            self.s[k] += self.dt * self.dsdt[k]
+            self.i[k] += self.dt * self.didt[k]
         # Update the values of the output layer
-        self.s[-1] = self.dt * dsdt[-1]
+        self.s[-1] = self.dt * self.dsdt[-1]
         # return the somatic and interneuron membrane potentials and optionally the apical inputs
 
         return [va_topdown, va_cancelation]
@@ -279,7 +268,7 @@ class dendriticNet(nn.Module):
         self.wpi.load_state_dict(checkpoint["wpi"])
 
     def extra_repr(self):
-        return f"T-{self.T}_dt-{self.dt}_topology-{'-'.join(map(str,self.net_topology))}_lrpp-{'-'.join(map(str,self.lr_pp))}_lrpi-{'-'.join(map(str,self.lr_pi))}_lrip-{'-'.join(map(str,self.lr_ip))}_ga-{self.ga}_gb-{self.gb}_gd-{self.gd}_glk-{self.glk}_gsom-{self.gsom}_rho-{self.rho.__name__}_initw-{self.initw}"
+        return f"dt-{self.dt}_topology-{'-'.join(map(str,self.net_topology))}_lrpp-{'-'.join(map(str,self.lr_pp))}_lrpi-{'-'.join(map(str,self.lr_pi))}_lrip-{'-'.join(map(str,self.lr_ip))}_ga-{self.ga}_gb-{self.gb}_gd-{self.gd}_glk-{self.glk}_gsom-{self.gsom}_rho-{self.rho.__name__}"
 
 
 class teacherNet(nn.Module):

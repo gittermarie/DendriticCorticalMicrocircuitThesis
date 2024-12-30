@@ -4,9 +4,10 @@ import numpy as np
 from netClasses import *
 from plotFunctions import *
 from training_and_eval import *
+import time
 
 # input batch size for training (default: 0)
-BATCH_SIZE = 5
+BATCH_SIZE = 1
 
 # time discretization (default: 0.1)
 DT = 0.1
@@ -87,7 +88,7 @@ def fig_s1(net, device):
             s_hist,
         )
         print("---learning self-prediction---")
-        data = create_dataset(500, BATCH_SIZE, net.net_topology[0], 0, 1, device)
+        data = create_dataset(1000, BATCH_SIZE, net.net_topology[0], 0, 1, device)
         va, wpf_hist, wpb_hist, wpi_hist, wip_hist, n = self_pred_training(
             net, data, T, DT, TAU_NEU, device
         )
@@ -251,10 +252,12 @@ if __name__ == "__main__":
     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     device = torch.device("cpu")
     print(device)
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+        start_time = time.time()
 
     # Define the networks
     net_1 = dendriticNet(
-        T,
         DT,
         BATCH_SIZE,
         size_tab=[30, 20, 10],
@@ -274,7 +277,6 @@ if __name__ == "__main__":
         device=device,
     )
     net_2 = dendriticNet(
-        T,
         DT,
         BATCH_SIZE,
         size_tab=[30, 50, 10],
