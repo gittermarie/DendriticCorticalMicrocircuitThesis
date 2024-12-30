@@ -233,14 +233,14 @@ class dendriticNet(nn.Module):
     def updateHist(self, hist, tab, param=False):
         # instantiate a first empty tensor that is on the same device as the net
         if hist == []:
-            hist = [torch.empty(0, device=self.device) for _ in range(len(tab))]
+            hist = [torch.empty(0, device=torch.device("cpu")) for _ in range(len(tab))]
 
         if not param:
             for k in range(len(tab)):
-                hist[k] = torch.cat((hist[k], tab[k].unsqueeze(2)), dim=2)
+                hist[k] = torch.cat((hist[k], tab[k][0].unsqueeze(1).cpu()), dim=1)
         else:
             for k in range(len(tab)):
-                hist[k] = torch.cat((hist[k], tab[k].weight.unsqueeze(2)), dim=2)
+                hist[k] = torch.cat((hist[k], tab[k].weight.unsqueeze(2).cpu()), dim=2)
         return hist
 
     def save_weights(self, filename):

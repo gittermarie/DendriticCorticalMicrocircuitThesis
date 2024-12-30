@@ -7,7 +7,7 @@ from training_and_eval import *
 import time
 
 # input batch size for training (default: 0)
-BATCH_SIZE = 1
+BATCH_SIZE = 500
 
 # time discretization (default: 0.1)
 DT = 0.1
@@ -58,10 +58,9 @@ def softrelu(x):
 def fig_s1(net, device):
     net.to(device)
     with torch.no_grad():
-
         print("---before learning self-prediction---")
         eval_data = [
-            2 * torch.rand(BATCH_SIZE, net.net_topology[0], device=device) - 1
+            2 * torch.rand(BATCH_SIZE, net.net_topology[0]) - 1
             for _ in range(3)
         ]
         targets = [None for _ in range(3)]
@@ -88,7 +87,7 @@ def fig_s1(net, device):
             s_hist,
         )
         print("---learning self-prediction---")
-        data = create_dataset(1000, BATCH_SIZE, net.net_topology[0], 0, 1, device)
+        data = create_dataset(1000, BATCH_SIZE, net.net_topology[0], 0, 1)
         va, wpf_hist, wpb_hist, wpi_hist, wip_hist, n = self_pred_training(
             net, data, T, DT, TAU_NEU, device
         )
@@ -249,8 +248,7 @@ def fig_2(net, device, train_from_scratch=False):
 if __name__ == "__main__":
     # Define the device
     print(torch.cuda.is_available())
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
     if torch.cuda.is_available():
         torch.cuda.synchronize()

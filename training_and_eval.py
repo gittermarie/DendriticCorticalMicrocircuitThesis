@@ -5,7 +5,7 @@ import numpy as np
 from netClasses import *
 
 
-def create_dataset(n_samples, batch_size, input_size, mu, sigma, device):
+def create_dataset(n_samples, batch_size, input_size, mu, sigma, device=torch.device("cpu")):
     data = (
         2 * sigma * torch.rand((n_samples, batch_size, input_size), device=device)
         - sigma
@@ -68,27 +68,33 @@ def evalrun(net, data, targets, batch_size, t, dt, tau_neu, device):
     s_hist = []
     target_hist = []
     data_trace = data[0].clone()
-    data_trace_hist = data[0].unsqueeze(2)
+    # move data trace onto device
+    data_trace = data_trace.to(device)
+    data_trace_hist = data[0].unsqueeze(2).mean(0)
+    batch = data[0].clone()
+    batch = batch.to(device)
+    print(data_trace.device, batch.device)
     for n in range(len(data)):
         print("evalrun, sample {}".format(1 + n))
+        # fill batch array on device with values from data(n)
+        batch.copy_(data[n]) 
         for k in range(t):
             # low-pass filter the data
-            data_trace += (dt / tau_neu) * (-data_trace + data[n])
+            data_trace += (dt / tau_neu) * (-data_trace + batch)
             # Step the neural network
             va = net.stepper(data_trace, target=targets[n])
             # Track apical potential, neurons and synapses
             va_topdown, va_cancelation = va
-
             data_trace_hist = torch.cat(
-                (data_trace_hist, data_trace.unsqueeze(2)), dim=2
+                (data_trace_hist, data_trace[0].unsqueeze(1).cpu()), dim=1
             )
             if targets[n] is None:
                 # fill numpy array of shape (BATCH_SIZE, SIZE_TAB_TEACHER, 1) with numpy.nan
                 target_hist.append(
-                    np.full((batch_size, net.net_topology[-1], 1), np.nan)
+                    np.full((net.net_topology[-1], 1), np.nan)
                 )
             else:
-                target_hist.append(targets[n].clone().unsqueeze(2).cpu().numpy())
+                target_hist.append(targets[n][0].clone().unsqueeze(1).cpu().numpy())
             va_topdown_hist = net.updateHist(va_topdown_hist, va_topdown)
             va_cancelation_hist = net.updateHist(va_cancelation_hist, va_cancelation)
             s_hist = net.updateHist(s_hist, net.s)
@@ -104,14 +110,6 @@ def evalrun(net, data, targets, batch_size, t, dt, tau_neu, device):
 def self_pred_training(net, data, t, dt, tau_neu, device):
     net.to(device)
     net.train()
-    dataset = torch.utils.data.TensorDataset(data)
-    dataloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=data.shape[0],
-        shuffle=True,
-        pin_memory=True,
-        num_workers=2,
-    )
     try:
         wpf_hist = []
         wpb_hist = []
@@ -120,29 +118,32 @@ def self_pred_training(net, data, t, dt, tau_neu, device):
         va_topdown_hist = []
         va_cancelation_hist = []
         data_trace = data[0].clone()
-        for n in tqdm(range(data.shape[0] // data.shape[1])):
-            for batch in dataloader:
-                batch = batch[0].to(device)
-                data_trace = batch[0].clone()
-                for k in range(t):
-                    # low-pass filter the data
-                    data_trace += (dt / tau_neu) * (-data_trace + data[n])
-                    va = net.stepper(data_trace)
-                    # Track apical potential, neurons and synapses
-                    if k == 0 and n % 20 == 0:
-                        va_topdown, va_cancelation = va
-                        # Update the tabs with the current values
-                        va_topdown_hist = net.updateHist(va_topdown_hist, va_topdown)
-                        va_cancelation_hist = net.updateHist(
-                            va_cancelation_hist, va_cancelation
-                        )
-                        wpf_hist = net.updateHist(wpf_hist, net.wpf, param=True)
-                        wpb_hist = net.updateHist(wpb_hist, net.wpb, param=True)
-                        wpi_hist = net.updateHist(wpi_hist, net.wpi, param=True)
-                        wip_hist = net.updateHist(wip_hist, net.wip, param=True)
+        batch = data[0].clone()
+        data_trace = data_trace.to(device)
+        batch = batch.to(device)
+        print(data_trace.device, batch.device)
+        for n in tqdm(range(data.shape[0])):
+            # put data[n] on device
+            batch.copy_(data[n])
+            for k in range(t):
+                # low-pass filter the data
+                data_trace += (dt / tau_neu) * (-data_trace + batch)
+                va = net.stepper(data_trace)
+                # Track apical potential, neurons and synapses
+                if k == 0 and n % 20 == 0:
+                    va_topdown, va_cancelation = va
+                    # Update the tabs with the current values
+                    va_topdown_hist = net.updateHist(va_topdown_hist, va_topdown)
+                    va_cancelation_hist = net.updateHist(
+                        va_cancelation_hist, va_cancelation
+                    )
+                    wpf_hist = net.updateHist(wpf_hist, net.wpf, param=True)
+                    wpb_hist = net.updateHist(wpb_hist, net.wpb, param=True)
+                    wpi_hist = net.updateHist(wpi_hist, net.wpi, param=True)
+                    wip_hist = net.updateHist(wip_hist, net.wip, param=True)
 
-                    # Update the pyramidal-to-interneuron weights (NOT the pyramidal-to-pyramidal weights !)
-                    net.updateWeights(data[n])
+                # Update the pyramidal-to-interneuron weights (NOT the pyramidal-to-pyramidal weights !)
+                net.updateWeights(batch)
     except KeyboardInterrupt:
         pass
 

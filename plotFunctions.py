@@ -31,7 +31,7 @@ def plot_synapse_distance(fig_title, net_depth, wpf_hist, wpb_hist, wpi_hist, wi
         plt.subplot(net_depth - 2, 2, i)
         plt.plot(
             0.1 * np.linspace(0, wpf_hist[i].size(2) - 1, wpf_hist[i].size(2)),
-            sqrd_frob_norm.cpu().numpy(),
+            sqrd_frob_norm.numpy(),
             color="grey",
             linewidth=3,
             alpha=0.8,
@@ -44,7 +44,7 @@ def plot_synapse_distance(fig_title, net_depth, wpf_hist, wpb_hist, wpi_hist, wi
         plt.subplot(net_depth - 2, 2, i + 1)
         plt.plot(
             0.1 * np.linspace(0, wpf_hist[i].size(2) - 1, wpf_hist[i].size(2)),
-            sqrd_frob_norm.cpu().numpy(),
+            sqrd_frob_norm.numpy(),
             color="grey",
             linewidth=3,
             alpha=0.8,
@@ -75,7 +75,7 @@ def plot_synapse_trace(fig_title, net_depth, wpf_hist, wpb_hist, wpi_hist, wip_h
 
     plt.plot(
         0.1 * np.linspace(0, wpf_hist[0].size(2) - 1, wpf_hist[0].size(2)),
-        wpf_hist[0].mean(0).mean(0).cpu().numpy(),
+        wpf_hist[0].mean(0).mean(0).numpy(),
         color="red",
         linewidth=3,
         alpha=0.8,
@@ -89,7 +89,7 @@ def plot_synapse_trace(fig_title, net_depth, wpf_hist, wpb_hist, wpi_hist, wip_h
         )
         plt.plot(
             0.1 * np.linspace(0, wpf_hist[0].size(2) - 1, wpf_hist[0].size(2)),
-            wpf_hist[0][ind_0, ind_1, :].cpu().numpy(),
+            wpf_hist[0][ind_0, ind_1, :].numpy(),
             color="red",
             linewidth=1.5,
             alpha=0.2,
@@ -117,7 +117,7 @@ def plot_synapse_trace(fig_title, net_depth, wpf_hist, wpb_hist, wpi_hist, wip_h
                     weight_hists[w][i - idx_sub].size(2) - 1,
                     weight_hists[w][i - idx_sub].size(2),
                 ),
-                weight_hists[w][i - idx_sub].mean(0).mean(0).cpu().numpy(),
+                weight_hists[w][i - idx_sub].mean(0).mean(0).numpy(),
                 color=weight_colors[w],
                 linewidth=3,
                 alpha=0.8,
@@ -136,7 +136,7 @@ def plot_synapse_trace(fig_title, net_depth, wpf_hist, wpb_hist, wpi_hist, wip_h
                         weight_hists[w][i - idx_sub].size(2) - 1,
                         weight_hists[w][i - idx_sub].size(2),
                     ),
-                    weight_hists[w][i - idx_sub][ind_0, ind_1, :].cpu().numpy(),
+                    weight_hists[w][i - idx_sub][ind_0, ind_1, :].numpy(),
                     color=weight_colors[w],
                     linewidth=1.5,
                     alpha=0.2,
@@ -157,16 +157,16 @@ def plot_neuron_trace(fig_title, net_depth, data_trace_hist, s_hist):
     # plot sensory input
     plt.subplot(net_depth, 1, 1)
     plt.plot(
-        0.1 * np.linspace(0, data_trace_hist.size(2) - 1, data_trace_hist.size(2)),
-        data_trace_hist.mean(1).mean(0).cpu().numpy(),
+        0.1 * np.linspace(0, data_trace_hist.size(1) - 1, data_trace_hist.size(1)),
+        data_trace_hist.mean(1).numpy(),
         color="green",
         linewidth=3,
         alpha=0.8,
     )
     for j in range(10):
         plt.plot(
-            0.1 * np.linspace(0, data_trace_hist.size(2) - 1, data_trace_hist.size(2)),
-            data_trace_hist[0, j, :].cpu().numpy(),
+            0.1 * np.linspace(0, data_trace_hist.size(1) - 1, data_trace_hist.size(1)),
+            data_trace_hist[j, :].numpy(),
             color="green",
             linewidth=1.5,
             alpha=0.2,
@@ -180,8 +180,8 @@ def plot_neuron_trace(fig_title, net_depth, data_trace_hist, s_hist):
     for i in range(1, net_depth):
         plt.subplot(net_depth, 1, 1 + i)
         plt.plot(
-            0.1 * np.linspace(0, s_hist[i - 1].size(2) - 1, s_hist[i - 1].size(2)),
-            s_hist[i - 1].mean(1).mean(0).cpu().numpy(),
+            0.1 * np.linspace(0, s_hist[i - 1].size(1) - 1, s_hist[i - 1].size(1)),
+            s_hist[i - 1].mean(1).numpy(),
             color="blue",
             linewidth=3,
             alpha=0.8,
@@ -189,8 +189,8 @@ def plot_neuron_trace(fig_title, net_depth, data_trace_hist, s_hist):
 
         for j in range(10):
             plt.plot(
-                0.1 * np.linspace(0, s_hist[i - 1].size(2) - 1, s_hist[i - 1].size(2)),
-                s_hist[i - 1][0, j, :].cpu().numpy(),
+                0.1 * np.linspace(0, s_hist[i - 1].size(1) - 1, s_hist[i - 1].size(1)),
+                s_hist[i - 1][j, :].numpy(),
                 color="blue",
                 linewidth=1.5,
                 alpha=0.2,
@@ -226,8 +226,8 @@ def plot_apical_trace(
         # pick a random input-"neuron" from the visible layer
         ind_neu = j
         plt.plot(
-            0.1 * np.linspace(0, data_trace_hist.size(2) - 1, data_trace_hist.size(2)),
-            data_trace_hist[0, ind_neu, :].cpu().numpy(),
+            0.1 * np.linspace(0, data_trace_hist.size(1) - 1, data_trace_hist.size(1)),
+            data_trace_hist[ind_neu, :].numpy(),
             color="green",
             linewidth=3,
             alpha=0.5,
@@ -247,10 +247,10 @@ def plot_apical_trace(
                 0.1
                 * np.linspace(
                     0,
-                    va_cancelation_hist[i - 1].size(2) - 1,
-                    va_cancelation_hist[i - 1].size(2),
+                    va_cancelation_hist[i - 1].size(1) - 1,
+                    va_cancelation_hist[i - 1].size(1),
                 ),
-                va_cancelation_hist[i - 1][0, ind_neu, :].cpu().numpy(),
+                va_cancelation_hist[i - 1][ind_neu, :].numpy(),
                 color="red",
                 linewidth=3,
                 alpha=0.5,
@@ -260,10 +260,10 @@ def plot_apical_trace(
                 0.1
                 * np.linspace(
                     0,
-                    va_topdown_hist[i - 1].size(2) - 1,
-                    va_topdown_hist[i - 1].size(2),
+                    va_topdown_hist[i - 1].size(1) - 1,
+                    va_topdown_hist[i - 1].size(1),
                 ),
-                va_topdown_hist[i - 1][0, ind_neu, :].cpu().numpy(),
+                va_topdown_hist[i - 1][ind_neu, :].numpy(),
                 color="blue",
                 linewidth=3,
                 alpha=0.5,
@@ -273,14 +273,13 @@ def plot_apical_trace(
                 0.1
                 * np.linspace(
                     0,
-                    va_cancelation_hist[i - 1].size(2) - 1,
-                    va_cancelation_hist[i - 1].size(2),
+                    va_cancelation_hist[i - 1].size(1) - 1,
+                    va_cancelation_hist[i - 1].size(1),
                 ),
                 (
-                    va_cancelation_hist[i - 1][0, ind_neu, :]
-                    + va_topdown_hist[i - 1][0, ind_neu, :]
+                    va_cancelation_hist[i - 1][ind_neu, :]
+                    + va_topdown_hist[i - 1][ind_neu, :]
                 )
-                .cpu()
                 .numpy(),
                 color="grey",
                 linewidth=3,
@@ -298,15 +297,15 @@ def plot_apical_trace(
     for j in range(n_neu):
         plt.subplot(net_depth, n_neu, ind_subplot + j)
         plt.plot(
-            0.1 * np.linspace(0, s_hist[-1].size(2) - 1, s_hist[-1].size(2)),
-            s_hist[-1][0, j, :].cpu().numpy(),
+            0.1 * np.linspace(0, s_hist[-1].size(1) - 1, s_hist[-1].size(1)),
+            s_hist[-1][j, :].numpy(),
             color="blue",
             linewidth=3,
             alpha=0.5,
         )
         target_j = []
         for t in target_hist:
-            target_j.append(t[0, j, :])
+            target_j.append(t[j, :])
         plt.plot(
             0.1 * np.linspace(0, len(target_j) - 1, len(target_j)),
             target_j,
@@ -338,14 +337,12 @@ def plot_apical_distance(fig_title, net_depth, va_topdown_hist, va_cancelation_h
             0.1
             * np.linspace(
                 0,
-                va_cancelation_hist[i - 1].size(2) - 1,
-                va_cancelation_hist[i - 1].size(2),
+                va_cancelation_hist[i - 1].size(1) - 1,
+                va_cancelation_hist[i - 1].size(1),
             ),
             ((va_cancelation_hist[i - 1] + va_topdown_hist[i - 1]) ** 2)
-            .cpu()
             .numpy()
-            .sum(1)
-            .mean(0),
+            .sum(0),
             color="grey",
             linewidth=3,
             alpha=0.5,
