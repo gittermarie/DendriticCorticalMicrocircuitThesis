@@ -298,3 +298,8 @@ if __name__ == "__main__":
     fig_s1(net_1, device)
     # fig_1(net_1, device)
     # fig_2(net_2, device)
+
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+        end_time = time.time()
+        print(f"Time taken: {end_time - start_time} seconds")
