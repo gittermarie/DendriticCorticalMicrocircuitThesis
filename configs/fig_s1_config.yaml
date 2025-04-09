@@ -1,0 +1,21 @@
+n_samples: 10000
+batch_size: 1
+dt: 0.1
+t: 1000
+tau_neu: 3
+size_tab: [30, 20, 10]
+lr_pf: [0, 0]
+lr_ip: [0.0002375]
+lr_pi: [0.0005]
+lr_pb: [0]
+ga: 0.8
+gb: 1.0
+gd: 1.0
+glk: 0.1
+gsom: 0.8
+noise: 0.1
+tau_weights: 30
+rho: sigm
+initw: 1
+device: cpu
+sample_range: [-1, 1]
