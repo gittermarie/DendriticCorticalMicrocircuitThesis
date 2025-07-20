@@ -1,16 +1,39 @@
-import torch.optim as optim
-import numpy as np
-
-from netClasses import *
-from plotFunctions import *
-from training_and_eval import *
-from config import *
 import datetime
 import os
 
+import numpy as np
+import torch.optim as optim
 
-def fig_s1(net, config, fig_data, fig_target, train_data, run_number):
-    net.to(config.device)
+from config import *
+from netClasses import *
+from plotFunctions import *
+from training_and_eval import *
+
+
+def create_data(train_samples, eval_samples, batch_size, size_tab, sample_range, device):
+    train_data = torch.FloatTensor(train_samples, batch_size, size_tab[0]).uniform_(sample_range[0], sample_range[1]).to(device)
+    eval_data = torch.FloatTensor(eval_samples, 1, config.size_tab[0]).uniform_(sample_range[0], sample_range[1]).to(device)
+    return train_data, eval_data
+
+def fig_s1(run_number, device):
+    config = Config.from_yaml("configs/config_fig_s1.yaml")
+    net = DendriticNet(config.size_tab, 
+                       config.initw,
+                       config.dt, 
+                       config.gsom, 
+                       config.glk, 
+                       config.gb,
+                       config.ga,
+                       config.gd,
+                       config.tau_weights,
+                       config.noise,
+                       config.rho,
+                       config.lr_pf,
+                       config.lr_ip,
+                       config.lr_pi,
+                       config.lr_pb)
+
+    net.to(device)
     date_string = datetime.datetime.now().strftime("%Y-%m-%d")
     # make sure the directory runs/date_string/run_number exists
     os.makedirs(
@@ -188,16 +211,7 @@ if __name__ == "__main__":
     # torch.manual_seed(30)
     config = Config.fig_s1()
     net = dendriticNet(config)
-    train_data = create_dataset(
-        config.n_samples, config.batch_size, config.size_tab[0], 0, 1
-    )
-    fig_data = [
-        torch.FloatTensor(1, config.size_tab[0]).uniform_(
-            config.sample_range[0], config.sample_range[1]
-        )
-        for _ in range(3)
-    ]
-    fig_target = [None for _ in range(3)]
+    
 
     # create training and validation data for fig_2
     # config = Config.fig_2()

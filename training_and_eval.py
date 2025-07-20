@@ -1,36 +1,29 @@
+import logging
+
+import numpy as np
 import torch.optim as optim
 from tqdm import tqdm
-import numpy as np
 
 from netClasses import *
 
-
-def create_dataset(
-    n_samples, batch_size, input_size, r1, r2, device=torch.device("cpu")
-):
-    data = (
-        torch.FloatTensor(n_samples, batch_size, input_size).uniform_(r1, r2).to(device)
-    )
-    return data
+logger = logging.getLogger(__name__)
 
 
-def evalrun(net, data, targets, config):
+def evalrun(net, target_net, data, t, dt, tau_neu):
     va_topdown_hist = []
     va_cancelation_hist = []
     vb_input_hist = []
     u_p_hist = []
     target_hist = []
-    data_trace_hist = data[0][0].unsqueeze(0).clone()
+    data_trace_hist = []
     data_trace = data[0].clone()
-    print(config.t)
     for n in range(len(data)):
-        print(f"evalrun, sample {n + 1}")
-        batch = data[n].to(config.device)
-        target = targets[n] if targets else None
-
-        for k in range(config.t):
+        logger.info(f"Evaluating sample {n + 1}/{len(data)}")
+        data = data[n]
+        target = target_net(data)
+        for step in range(t):
             # Update data_trace
-            data_trace += (config.dt / config.tau_neu) * (-data_trace + batch)
+            data_trace += (dt / tau_neu) * (-data_trace + data)
             # Step the network
             den_input = net.stepper(data_trace, target=target)
             va_topdown, va_cancelation, vb_input = den_input
@@ -45,14 +38,12 @@ def evalrun(net, data, targets, config):
                 print("va_cancelation: ", va_cancelation)
                 print("vb_input: ", vb_input)
                 print("data_trace: ", data_trace)
-                print("batch: ", batch)
+                print("data: ", data)
                 print("target: ", target)
                 raise ValueError("nan found")
 
             # Update data trace history
-            data_trace_hist = torch.cat(
-                (data_trace_hist, data_trace[0].unsqueeze(0).cpu()), dim=0
-            )
+            data_trace_hist.append(data_trace[0].unsqueeze(0).cpu().numpy())
             if target is not None:
                 target_hist.append(target[0].cpu().numpy())
             else:
